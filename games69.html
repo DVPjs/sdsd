@@ -46,6 +46,22 @@
             overflow: hidden; /* For page transitions */
             opacity: 0; /* Initially hidden for smooth entrance */
             transition: opacity 0.8s ease-in-out;
+            /* Watermark for the outer area */
+        }
+
+        #app::before {
+            content: "SP";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg); /* Sideways and stuff */
+            font-size: 20vw; /* Large and responsive */
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.03); /* Very subtle */
+            z-index: -1; /* Behind other content */
+            pointer-events: none; /* Don't block clicks */
+            user-select: none; /* Non-selectable */
+            white-space: nowrap; /* Keep "SP" on one line */
         }
 
         #app.show-app {
@@ -54,9 +70,8 @@
 
         .page-view {
             width: 100%;
-            min-height: 100vh;
+            min-height: 100vh; /* Keep for transitions, content wrapper handles actual height */
             box-sizing: border-box;
-            padding: 30px; /* Increased padding */
             display: flex;
             flex-direction: column;
             justify-content: space-between; /* Push footer to bottom */
@@ -66,17 +81,33 @@
             position: absolute;
             top: 0;
             left: 0;
-            /* Dot background applied to the page-view itself */
-            background-color: var(--bg-color); /* Base color for the dots */
-            background-image: radial-gradient(circle at center, #3a3a3a 1px, transparent 1px), radial-gradient(circle at center, #3a3a3a 1px, transparent 1px);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
+            border: 1px solid var(--border-color); /* Border around the page view */
+            border-radius: 12px; /* Match app container radius */
+            box-shadow: 0 0 20px var(--shadow-color); /* Shadow for the page view */
+            overflow: hidden; /* Ensure content and background are clipped by border-radius */
         }
 
         .page-view.active {
             opacity: 1;
             transform: translateY(0);
             position: relative; /* Bring active page to front for interaction */
+        }
+
+        .page-content-wrapper { /* New wrapper for content and textured background */
+            flex-grow: 1;
+            padding: 30px; /* Padding for content inside the border */
+            background-color: var(--bg-color); /* Base color for the dots */
+            background-image: radial-gradient(circle at center, #3a3a3a 1px, transparent 1px), radial-gradient(circle at center, #3a3a3a 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            display: flex;
+            flex-direction: column;
+            /* New borders for the textured part */
+            border: 1px solid var(--border-color); /* Border around the entire textured area */
+            border-radius: 10px; /* Slightly smaller radius than .page-view for nested look */
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3); /* Inner shadow for depth */
+            margin-bottom: 20px; /* Space between content wrapper and footer */
+            /* Ensures background "cuts off" at this wrapper's boundaries */
         }
 
         /* Modal Styles */
@@ -200,18 +231,23 @@
 
         /* Home Page Specifics */
         #homePage {
+            /* No direct background here, it's on .page-content-wrapper */
+        }
+
+        #homePage .page-content-wrapper {
             display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 1fr 2fr 1fr; /* Ad | Content | Ad */
+            grid-template-rows: auto 1fr; /* Header | Main Content & Ads */
             gap: 30px; /* Increased gap */
             align-items: center;
-            justify-items: center;
+            justify-items: center; /* Center items horizontally within their grid cells */
             text-align: center;
         }
 
         #homePage header {
-            grid-column: 1 / -1;
-            padding: 60px 20px 40px; /* Adjusted padding */
+            grid-column: 1 / -1; /* Spans all columns */
+            grid-row: 1 / 2; /* First row */
+            padding: 30px 20px 0; /* Adjusted padding */
             position: relative;
             width: 100%;
         }
@@ -292,8 +328,25 @@
             z-index: 0;
         }
 
-        .ad-left, .ad-right {
-            width: 100%;
+        .ad-left {
+            grid-column: 1 / 2; /* First column */
+            grid-row: 2 / 3; /* Second row, same as center-content */
+            width: 100%; /* Fill grid cell */
+            height: 300px;
+            background-color: var(--primary-color); /* Ads blend with primary color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px; /* More rounded */
+            overflow: hidden;
+            box-shadow: 0 4px 15px var(--shadow-color); /* Deeper shadow */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        .ad-right {
+            grid-column: 3 / 4; /* Third column */
+            grid-row: 2 / 3; /* Second row, same as center-content */
+            width: 100%; /* Fill grid cell */
             height: 300px;
             background-color: var(--primary-color); /* Ads blend with primary color */
             display: flex;
@@ -317,7 +370,8 @@
         }
 
         .center-content {
-            grid-column: 2 / 3;
+            grid-column: 2 / 3; /* Second column */
+            grid-row: 2 / 3; /* Second row, same as ads */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -343,7 +397,7 @@
 
         /* Footer Styles */
         .main-footer {
-            grid-column: 1 / -1;
+            /* Removed grid properties as it's now outside .page-content-wrapper */
             background-color: var(--primary-color); /* Footer matches primary color */
             color: var(--text-color);
             padding: 20px 30px; /* Increased padding */
@@ -394,20 +448,63 @@
         .status-badge.offline::before { color: #dc3545; /* Red */ }
 
         /* Games Page Specifics */
+        #gamesPage .page-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* Align header and grid to left */
+            padding-bottom: 30px; /* Add padding to bottom of content wrapper */
+        }
+
         #gamesPage header {
-            text-align: center;
-            padding: 40px 20px; /* Adjusted padding */
+            text-align: left; /* Changed to left-aligned */
+            padding: 30px; /* Adjusted padding for the container */
+            width: calc(100% - 60px); /* Account for 30px padding on each side of page-content-wrapper */
+            max-width: 1200px; /* Match app container max-width */
+            margin: 0 auto 30px auto; /* Center it, and add bottom margin */
+            background-color: var(--secondary-color); /* Background for the header container */
+            border: 1px solid var(--border-color); /* Border for the header container */
+            border-radius: 12px; /* Rounded corners for the header container */
+            box-shadow: 0 6px 18px var(--shadow-color); /* Shadow for the header container */
+            display: flex; /* Use flexbox for internal layout */
+            flex-direction: column;
+            align-items: flex-start; /* Align contents to the left */
+        }
+
+        #gamesPage header h2 {
             font-size: 2.5rem; /* Larger header */
             color: var(--text-color);
             font-weight: 600;
+            margin-bottom: 8px; /* Closer to description */
         }
+
+        #gamesPage header p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 0; /* Closer to title */
+            margin-bottom: 15px; /* Space before game total */
+            max-width: 800px; /* Limit description width */
+        }
+
+        #gameTotalDisplay {
+            font-size: 1rem;
+            color: var(--accent-color);
+            background-color: var(--primary-color);
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            margin-top: 10px; /* Space below description */
+            align-self: flex-start; /* Align to the left within the flex container */
+        }
+
 
         .game-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Larger min-width for cards */
             gap: 25px; /* Increased gap */
-            padding: 25px;
+            padding: 0 25px; /* Adjusted padding, removed top/bottom as it's now on wrapper */
             flex-grow: 1;
+            width: 100%; /* Ensure grid takes full width */
         }
 
         .game-card {
@@ -457,6 +554,7 @@
             z-index: 1;
             opacity: 1;
             transition: opacity 0.3s ease;
+            text-align: left; /* Ensure text is left-aligned within overlay */
         }
 
         .game-card:hover .game-overlay {
@@ -476,15 +574,7 @@
             color: rgba(255, 255, 255, 0.6);
         }
 
-        .game-credits a {
-            color: var(--accent-color);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-        .game-credits a:hover {
-            color: #0099ff;
-            text-decoration: underline;
-        }
+        /* Removed .game-credits a styling as it's no longer a link */
 
         #loadingMoreGames {
             color: var(--text-color);
@@ -648,27 +738,36 @@
 
         /* Responsive Adjustments */
         @media (max-width: 900px) {
-            #homePage {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto auto auto 1fr auto;
+            #homePage .page-content-wrapper {
+                /* On smaller screens, ads should stack below the header and before center content */
+                grid-template-columns: 1fr; /* Single column */
+                grid-template-rows: auto auto auto 1fr; /* Header | Ad Left | Ad Right | Content */
                 gap: 25px;
             }
 
-            .ad-left, .ad-right {
-                grid-column: 1 / -1;
+            #homePage header {
+                grid-row: 1 / 2;
+            }
+
+            .ad-left {
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 2 / 3; /* Second row */
                 height: 200px; /* Slightly smaller ads on medium screens */
             }
 
+            .ad-right {
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 3 / 4; /* Third row */
+                height: 200px;
+            }
+
             .center-content {
-                grid-column: 1 / -1;
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 4 / 5; /* Fourth row */
             }
 
-            #animatedTitle {
-                font-size: 3.2rem;
-            }
-
-            .description-container {
-                padding: 25px 30px;
+            .main-footer {
+                /* No grid-row here as it's outside the grid on homePage */
             }
 
             .game-grid {
@@ -796,23 +895,24 @@
     <div id="app">
         <!-- Home Page View (initially visible after name input) -->
         <div id="homePage" class="page-view">
-            <header class="main-menu-animation">
-                <h1 id="animatedTitle"></h1> <!-- Title will be typed by JS -->
-                <div class="description-container">
-                    <p>Your ultimate destination for unblocked school games. Dive into a world of fun and challenge, designed for seamless play on any device.</p>
+            <div class="page-content-wrapper"> <!-- New wrapper for content and background -->
+                <header class="main-menu-animation">
+                    <h1 id="animatedTitle"></h1> <!-- Title will be typed by JS -->
+                    <div class="description-container">
+                        <p>Your ultimate destination for unblocked school games. Dive into a world of fun and challenge, designed for seamless play on any device.</p>
+                    </div>
+                </header>
+                <aside class="ad-left">
+                    <!-- Ad Iframe Left -->
+                    <iframe src="about:blank" title="Advertisement Left" frameborder="0"></iframe>
+                </aside>
+                <aside class="ad-right">
+                    <!-- Ad Iframe Right -->
+                    <iframe src="about:blank" title="Advertisement Right" frameborder="0"></iframe>
+                </aside>
+                <div class="center-content">
+                    <button id="startButton">Start Playing</button>
                 </div>
-            </header>
-            <aside class="ad-left">
-                <!-- Ad Iframe Left -->
-                <iframe src="about:blank" title="Advertisement Left" frameborder="0"></iframe>
-            </aside>
-            <aside class="ad-right">
-                <!-- Ad Iframe Right -->
-                <iframe src="about:blank" title="Advertisement Right" frameborder="0"></iframe>
-            </aside>
-            <div class="center-content">
-                <!-- The spinning box area has been removed -->
-                <button id="startButton">Start Playing</button>
             </div>
             <footer class="main-footer">
                 <nav>
@@ -829,13 +929,17 @@
 
         <!-- Games Page View (initially hidden) -->
         <div id="gamesPage" class="page-view" style="display: none;">
-            <header>
-                <h2>Our Games</h2>
-            </header>
-            <div id="gamesGrid" class="game-grid">
-                <!-- Games will be dynamically loaded here -->
+            <div class="page-content-wrapper"> <!-- New wrapper for content and background -->
+                <header>
+                    <h2>Our Games</h2>
+                    <p>Explore our curated collection of unblocked games. Find your next favorite and enjoy endless fun!</p>
+                    <div id="gameTotalDisplay"></div> <!-- Moved here -->
+                </header>
+                <div id="gamesGrid" class="game-grid">
+                    <!-- Games will be dynamically loaded here -->
+                </div>
+                <div id="loadingMoreGames" style="display: none; text-align: center; padding: 20px;">Loading more games...</div>
             </div>
-            <div id="loadingMoreGames" style="display: none; text-align: center; padding: 20px;">Loading more games...</div>
             <footer class="main-footer">
                 <nav>
                     <a href="#">Terms</a>
@@ -877,7 +981,7 @@
                 <button id="reportBtn">Report Issue</button> <!-- New Report Button -->
                 <button id="closeGameBtn">Close Game</button>
             </div>
-            <div id="statsEl">FPS: -- | RAM: --</div>
+            <div id="statsEl">FPS: --</div>
             <footer class="game-modal-footer">
                 <span>Enjoy your game!</span>
             </footer>
@@ -927,7 +1031,7 @@
         const statsEl = document.getElementById('statsEl');
         const adLeftIframe = document.querySelector('.ad-left iframe'); // Get ad iframes
         const adRightIframe = document.querySelector('.ad-right iframe');
-        // Removed homeCenterVisual as it's no longer needed
+        const gameTotalDisplay = document.getElementById('gameTotalDisplay'); // New element for game total
 
         // New Report Modal Elements
         const reportModal = document.getElementById('reportModal');
@@ -939,9 +1043,11 @@
         let userName = '';
         let currentPage = 'home'; // Tracks current active page
         let statsRunning = false; // New variable for stats
+        let animationFrameId; // To store the requestAnimationFrame ID for FPS counter
 
-        // IMPORTANT: THIS URL HAS BEEN UPDATED WITH YOUR LATEST WORKING GOOGLE APPS SCRIPT WEB APP URL
-        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwlis8z0AYdJPw0FD8b7_YFU2lA8G9CIE-sEmx6R6tOiGwjLI9P0iqkUh6RRMCndcVtg/exec';
+        // IMPORTANT: REPLACE THIS URL WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+        // Instructions for deployment are provided after the code block.
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx7uPJgJarkSCUMzwDBsMgX9_4Uv2jPe_q_HccQ6mkr3Z0KNwvduxx2pyim2Dmo7QpQSg/exec'; 
 
         // Define transition speed in milliseconds for JavaScript use
         const transitionSpeedMs = 400; // Corresponds to --transition-speed: 0.4s in CSS
@@ -1182,11 +1288,15 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
                 gameCard.classList.add('game-card');
                 gameCard.dataset.gameId = game.id; // Store game ID for click handler
 
+                // Extract username from GitHub repo URL
+                const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+
                 gameCard.innerHTML = `
                     <img src="${game.imageUrl}" alt="${game.title} Thumbnail" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/400x300/3a3a3a/e0e0e0?text=No+Image';">
                     <div class="game-overlay">
                         <div class="game-title">${game.title}</div>
-                        <div class="game-credits">All Credits To <a href="${game.repoUrl}" target="_blank" rel="noopener noreferrer">GitHub Repo</a>!</div>
+                        <div class="game-credits">Credits: ${githubUsername}</div>
                     </div>
                 `;
                 fragment.appendChild(gameCard);
@@ -1200,6 +1310,12 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
             } else {
                 loadingMoreGames.style.display = 'none';
             }
+            updateGameTotal(); // Update game total after rendering
+        }
+
+        // Function to update the dynamic game total
+        function updateGameTotal() {
+            gameTotalDisplay.textContent = `Total Games: ${allGamesData.length}`;
         }
 
         // Function to handle scroll for lazy loading
@@ -1237,29 +1353,31 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
 
         // --- GAME LOADING LOGIC (from user provided snippet) ---
 
-        // Placeholder for stats tracking (as per user's snippet)
+        // FPS counter function
         function startStats() {
             statsRunning = true;
             let frameCount = 0;
             let lastTime = performance.now();
 
-            function updateStats() {
-                if (!statsRunning) return;
+            function updateFPS() {
+                if (!statsRunning) {
+                    cancelAnimationFrame(animationFrameId); // Stop the loop if not running
+                    return;
+                }
 
-                frameCount++;
                 const currentTime = performance.now();
-                const deltaTime = currentTime - lastTime;
+                frameCount++;
 
-                if (deltaTime >= 1000) { // Update every second
-                    const fps = Math.round(frameCount / (deltaTime / 1000));
-                    // Ram usage is not directly accessible in browser JS for iframe content without specific APIs/extensions
-                    statsEl.textContent = `FPS: -- | RAM: --`;
+                // Update FPS every second
+                if (currentTime - lastTime >= 1000) {
+                    const fps = Math.round(frameCount / ((currentTime - lastTime) / 1000));
+                    statsEl.textContent = `FPS: ${fps}`;
                     frameCount = 0;
                     lastTime = currentTime;
                 }
-                requestAnimationFrame(updateStats);
+                animationFrameId = requestAnimationFrame(updateFPS);
             }
-            requestAnimationFrame(updateStats);
+            animationFrameId = requestAnimationFrame(updateFPS); // Start the loop
         }
 
         // Function to load game into iframe by fetching HTML and rewriting paths
@@ -1322,7 +1440,8 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
                 gameModal.style.display = 'none';
                 gameIframe.srcdoc = ''; // Clear iframe content
                 statsRunning = false; // Stop stats
-                statsEl.textContent = 'FPS: -- | RAM: --'; // Reset stats display
+                cancelAnimationFrame(animationFrameId); // Ensure FPS counter stops
+                statsEl.textContent = 'FPS: --'; // Reset stats display
             }, 400); // Match modal transition speed
         }
 
@@ -1342,7 +1461,7 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
 
         async function sendReportToGoogleSheet(gameTitle, issueDescription) {
             if (GOOGLE_SHEET_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE' || !GOOGLE_SHEET_WEB_APP_URL) {
-                showMessageBox('Report feature not configured. Please set up Google Apps Script URL.');
+                showMessageBox('Report feature not configured. Please set up Google Apps Script URL as instructed.');
                 return;
             }
 
@@ -1353,9 +1472,13 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
             };
 
             try {
+                // Using 'no-cors' mode is necessary for direct browser-to-Apps-Script communication
+                // without complex CORS preflight issues. However, it means the browser won't
+                // receive a direct success/failure response from the Apps Script.
+                // You'll need to check your Google Sheet for successful submissions.
                 const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // required for Apps Script (but limits response visibility)
+                    mode: 'no-cors', 
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -1364,7 +1487,7 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
 
                 // Since mode is 'no-cors', response.ok will always be true and response.text() might be empty.
                 // We rely on the Apps Script logs for actual success/failure.
-                showMessageBox('Report submitted successfully! (Check Google Sheet)');
+                showMessageBox('Report submitted! Please check your Google Sheet for confirmation.');
                 hideReportModal();
             } catch (error) {
                 console.error('Network error sending report:', error);
@@ -1428,6 +1551,7 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
             if (gamesRendered === 0) {
                 renderGames();
             }
+            updateGameTotal(); // Ensure total is updated when navigating to games page
         });
 
         // Games Grid Click Handler (Delegation)
@@ -1438,7 +1562,11 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
                 const game = allGamesData.find(g => g.id === gameId);
                 if (game) {
                     gameModalTitle.textContent = game.title;
-                    gameModalCredits.innerHTML = `All Credits To <a href="${game.repoUrl}" target="_blank" rel="noopener noreferrer">GitHub Repo</a>!`;
+                    // Extract username for game modal credits
+                    const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                    const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+                    gameModalCredits.textContent = `Credits: ${githubUsername}`;
+
                     // Call the new loadGameIntoIframe function with the game's repoUrl
                     loadGameIntoIframe(game.repoUrl);
                     gameModal.style.display = 'flex';
@@ -1460,8 +1588,6 @@ repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // U
                 gameIframe.mozRequestFullScreen();
             } else if (gameIframe.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
                 gameIframe.webkitRequestFullscreen();
-            } else if (gameIframe.msRequestFullscreen) { /* IE/Edge */
-                gameIframe.msRequestFullscreen();
             } else {
                 showMessageBox('Fullscreen not supported or allowed by your browser/device for this content.');
             }
@@ -1612,49 +1738,24 @@ reportModal.addEventListener('click', (e) => {
     }
 });
 
-// --- Send POST request to Google Apps Script Webhook ---
-function sendReportToGoogleSheet(gameTitle, issueDescription) {
-    const payload = {
-        timestamp: new Date().toISOString(),
-        game: gameTitle,
-        issue: issueDescription
-    };
+// --- Lazy load games on scroll ---
+window.addEventListener('scroll', handleScroll);
 
-    fetch(GOOGLE_SHEET_WEB_APP_URL, { // Use the constant here
-        method: 'POST',
-        mode: 'no-cors', // required for Apps Script (but limits response visibility)
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-    }).then(() => {
-        showMessageBox('Issue submitted successfully! (Check Google Sheet)');
-        hideReportModal();
-    }).catch(error => {
-        console.error('Submission error:', error);
-        showMessageBox('Failed to submit issue. Try again later.');
-    });
-}
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Set current year in footers
+    const year = new Date().getFullYear();
+    currentYearSpan.textContent = year;
+    gamesPageCurrentYearSpan.textContent = year;
 
+    // Show the name modal on page load
+    nameModal.classList.add('show');
+    userNameInput.focus();
 
-        // Lazy load games on scroll
-        window.addEventListener('scroll', handleScroll);
-
-        // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Set current year in footers
-            const year = new Date().getFullYear();
-            currentYearSpan.textContent = year;
-            gamesPageCurrentYearSpan.textContent = year;
-
-            // Show the name modal on page load
-            nameModal.classList.add('show');
-            userNameInput.focus();
-
-            // Fetch service status
-            fetchServiceStatus();
-            // Initial render of games is now triggered when navigating to the games page
-        });
+    // Fetch service status
+    fetchServiceStatus();
+    // Initial render of games is now triggered when navigating to the games page
+});
     </script>
 </body>
 </html>
