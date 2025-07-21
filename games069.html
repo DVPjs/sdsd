@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptPort</title>
+    <!-- Inter Font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* General Styles */
+        :root {
+            --bg-color: #121212; /* Deeper, richer dark background */
+            --text-color: #e0e0e0;
+            --primary-color: #333333; /* Darker, more matte grey for elements */
+            --secondary-color: #2a2a2a; /* Slightly lighter than primary for contrast */
+            --accent-color: #007acc; /* A muted, deep blue for highlights */
+            --border-color: #444444;
+            --shadow-color: rgba(0, 0, 0, 0.6); /* Deeper shadows */
+            --transition-speed: 0.4s;
+            --glow-color: rgba(0, 122, 204, 0.4); /* Muted blue glow */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font */
+            background-color: var(--bg-color); /* Solid background for the body */
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scroll from animations */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        #app {
+            width: 100%;
+            max-width: 1200px; /* Max width for content */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 40px var(--shadow-color); /* Deeper shadow for the app container */
+            border-radius: 12px; /* Slightly more rounded corners for the overall app */
+            position: relative;
+            overflow: hidden; /* For page transitions */
+            opacity: 0; /* Initially hidden for smooth entrance */
+            transition: opacity 0.8s ease-in-out;
+            /* Watermark for the outer area */
+        }
+
+        #app::before {
+            content: "SP";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg); /* Sideways and stuff */
+            font-size: 20vw; /* Large and responsive */
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.03); /* Very subtle */
+            z-index: -1; /* Behind other content */
+            pointer-events: none; /* Don't block clicks */
+            user-select: none; /* Non-selectable */
+            white-space: nowrap; /* Keep "SP" on one line */
+        }
+
+        #app.show-app {
+            opacity: 1;
+        }
+
+        .page-view {
+            width: 100%;
+            min-height: 100vh; /* Keep for transitions, content wrapper handles actual height */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Push footer to bottom */
+            opacity: 0;
+            transform: translateY(20px); /* Slight slide-up effect */
+            transition: opacity var(--transition-speed) ease-in-out, transform var(--transition-speed) ease-in-out;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 1px solid var(--border-color); /* Border around the page view */
+            border-radius: 12px; /* Match app container radius */
+            box-shadow: 0 0 20px var(--shadow-color); /* Shadow for the page view */
+            overflow: hidden; /* Ensure content and background are clipped by border-radius */
+        }
+
+        .page-view.active {
+            opacity: 1;
+            transform: translateY(0);
+            position: relative; /* Bring active page to front for interaction */
+        }
+
+        .page-content-wrapper { /* New wrapper for content and textured background */
+            flex-grow: 1;
+            padding: 30px; /* Padding for content inside the border */
+            background-color: var(--bg-color); /* Base color for the dots */
+            background-image: radial-gradient(circle at center, #3a3a3a 1px, transparent 1px), radial-gradient(circle at center, #3a3a3a 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            display: flex;
+            flex-direction: column;
+            /* New borders for the textured part */
+            border: 1px solid var(--border-color); /* Border around the entire textured area */
+            border-radius: 10px; /* Slightly smaller radius than .page-view for nested look */
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3); /* Inner shadow for depth */
+            margin-bottom: 20px; /* Space between content wrapper and footer */
+            /* Ensures background "cuts off" at this wrapper's boundaries */
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); /* Slightly darker overlay */
+            backdrop-filter: blur(5px); /* Subtle blur effect */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--secondary-color);
+            padding: 40px;
+            border-radius: 12px; /* More rounded */
+            box-shadow: 0 8px 25px var(--shadow-color); /* Deeper shadow */
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            transform: translateY(-30px) scale(0.95); /* Initial state for pop-in */
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.4s ease; /* Bouncy transition */
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        .modal-content h2 {
+            color: var(--text-color);
+            margin-bottom: 25px; /* More space */
+            font-weight: 500;
+        }
+
+        .modal-content p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .modal-content input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 14px; /* Larger padding */
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px; /* More rounded */
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            font-size: 1.1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .modal-content input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.3);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            border: none;
+            padding: 14px 30px; /* Larger padding */
+            border-radius: 8px; /* More rounded */
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease, border 0.3s ease;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transition: width 0.4s ease, height 0.4s ease, top 0.4s ease, left 0.4s ease;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        button:hover::before {
+            width: 200%;
+            height: 200%;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 122, 204, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+            background-color: var(--primary-color);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Home Page Specifics */
+        #homePage {
+            /* No direct background here, it's on .page-content-wrapper */
+        }
+
+        #homePage .page-content-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr; /* Ad | Content | Ad */
+            grid-template-rows: auto 1fr; /* Header | Main Content & Ads */
+            gap: 30px; /* Increased gap */
+            align-items: center;
+            justify-items: center; /* Center items horizontally within their grid cells */
+            text-align: center;
+        }
+
+        #homePage header {
+            grid-column: 1 / -1; /* Spans all columns */
+            grid-row: 1 / 2; /* First row */
+            padding: 30px 20px 0; /* Adjusted padding */
+            position: relative;
+            width: 100%;
+        }
+
+        #animatedTitle {
+            font-size: 4rem; /* Larger title */
+            color: var(--text-color);
+            margin-bottom: 25px;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 0.15em solid var(--text-color);
+            animation: blink-caret 0.75s step-end infinite;
+            font-weight: 700; /* Bolder */
+            letter-spacing: -1px; /* Tighter letter spacing */
+        }
+
+        .typing-effect {
+            width: 0;
+            animation: typing 2s steps(100, end) forwards;
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: var(--text-color); }
+        }
+
+        .description-container {
+            background-color: var(--secondary-color);
+            padding: 30px 40px; /* Increased padding */
+            border-radius: 12px; /* More rounded */
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 6px 18px var(--shadow-color); /* Deeper shadow */
+            max-width: 650px; /* Slightly wider */
+            margin: 0 auto;
+        }
+
+        .description-container::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: conic-gradient(from 0deg at 50% 50%, transparent 0%, var(--glow-color) 20%, transparent 40%, transparent 60%, var(--glow-color) 80%, transparent 100%);
+            animation: rotateGlow 8s linear infinite;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            opacity: 0.7; /* Subtler glow */
+        }
+
+        .description-container p {
+            position: relative;
+            z-index: 1;
+            font-size: 1.3rem; /* Larger font */
+            line-height: 1.7; /* Better readability */
+            color: rgba(255, 255, 255, 0.9); /* Slightly brighter text */
+            font-weight: 300; /* Lighter weight */
+        }
+
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1.2); }
+        }
+
+        .description-container::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background-color: var(--secondary-color);
+            border-radius: 10px; /* Match inner radius */
+            z-index: 0;
+        }
+
+        .ad-left {
+            grid-column: 1 / 2; /* First column */
+            grid-row: 2 / 3; /* Second row, same as center-content */
+            width: 100%; /* Fill grid cell */
+            height: 300px;
+            background-color: var(--primary-color); /* Ads blend with primary color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px; /* More rounded */
+            overflow: hidden;
+            box-shadow: 0 4px 15px var(--shadow-color); /* Deeper shadow */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        .ad-right {
+            grid-column: 3 / 4; /* Third column */
+            grid-row: 2 / 3; /* Second row, same as center-content */
+            width: 100%; /* Fill grid cell */
+            height: 300px;
+            background-color: var(--primary-color); /* Ads blend with primary color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px; /* More rounded */
+            overflow: hidden;
+            box-shadow: 0 4px 15px var(--shadow-color); /* Deeper shadow */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        .ad-left iframe, .ad-right iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex; /* To center placeholder text if any */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .center-content {
+            grid-column: 2 / 3; /* Second column */
+            grid-row: 2 / 3; /* Second row, same as ads */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 60px 0; /* Increased padding */
+        }
+
+        #startButton {
+            padding: 18px 50px; /* Larger button */
+            font-size: 1.6rem; /* Larger font */
+            border-radius: 10px; /* More rounded */
+            background-color: var(--accent-color);
+            color: white;
+            box-shadow: 0 6px 20px rgba(0, 122, 204, 0.4); /* Stronger accent shadow */
+            font-weight: 600;
+        }
+
+        #startButton:hover {
+            background-color: #006bb3; /* Slightly darker accent on hover */
+            box-shadow: 0 8px 25px rgba(0, 122, 204, 0.6);
+            transform: translateY(-4px);
+        }
+
+        /* Footer Styles */
+        .main-footer {
+            /* Removed grid properties as it's now outside .page-content-wrapper */
+            background-color: var(--primary-color); /* Footer matches primary color */
+            color: var(--text-color);
+            padding: 20px 30px; /* Increased padding */
+            text-align: center;
+            font-size: 0.95rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 20px; /* Increased gap */
+            border-radius: 0 0 12px 12px; /* Rounded bottom corners for the app container */
+            margin-top: auto; /* Push to bottom */
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2); /* Subtle top shadow */
+        }
+
+        .main-footer nav a {
+            color: rgba(255, 255, 255, 0.7); /* Muted link color */
+            text-decoration: none;
+            margin: 0 12px;
+            transition: color 0.2s ease;
+            font-weight: 300;
+        }
+
+        .main-footer nav a:hover {
+            color: var(--accent-color);
+        }
+
+        .status-badge {
+            background-color: var(--secondary-color);
+            padding: 8px 15px; /* Larger badge */
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2); /* Inner shadow for depth */
+        }
+
+        .status-badge::before {
+            content: '●';
+            color: #ffc107; /* Yellow for loading/unknown */
+            font-size: 1.3em;
+            line-height: 1;
+        }
+        .status-badge.online::before { color: #28a745; /* Green */ }
+        .status-badge.offline::before { color: #dc3545; /* Red */ }
+
+        /* Games Page Specifics */
+        #gamesPage .page-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* Align header and grid to left */
+            padding-bottom: 30px; /* Add padding to bottom of content wrapper */
+        }
+
+        #gamesPage header {
+            text-align: left; /* Changed to left-aligned */
+            padding: 30px; /* Adjusted padding for the container */
+            width: calc(100% - 60px); /* Account for 30px padding on each side of page-content-wrapper */
+            max-width: 1200px; /* Match app container max-width */
+            margin: 0 auto 30px auto; /* Center it, and add bottom margin */
+            background-color: var(--secondary-color); /* Background for the header container */
+            border: 1px solid var(--border-color); /* Border for the header container */
+            border-radius: 12px; /* Rounded corners for the header container */
+            box-shadow: 0 6px 18px var(--shadow-color); /* Shadow for the header container */
+            display: flex; /* Use flexbox for internal layout */
+            flex-direction: column;
+            align-items: flex-start; /* Align contents to the left */
+        }
+
+        #gamesPage header h2 {
+            font-size: 2.5rem; /* Larger header */
+            color: var(--text-color);
+            font-weight: 600;
+            margin-bottom: 8px; /* Closer to description */
+        }
+
+        #gamesPage header p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 0; /* Closer to title */
+            margin-bottom: 15px; /* Space before game total */
+            max-width: 800px; /* Limit description width */
+        }
+
+        #gameTotalDisplay {
+            font-size: 1rem;
+            color: var(--accent-color);
+            background-color: var(--primary-color);
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            margin-top: 10px; /* Space below description */
+            align-self: flex-start; /* Align to the left within the flex container */
+        }
+
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Larger min-width for cards */
+            gap: 25px; /* Increased gap */
+            padding: 0 25px; /* Adjusted padding, removed top/bottom as it's now on wrapper */
+            flex-grow: 1;
+            width: 100%; /* Ensure grid takes full width */
+        }
+
+        .game-card {
+            background-color: var(--secondary-color);
+            border-radius: 12px; /* More rounded */
+            overflow: hidden;
+            box-shadow: 0 6px 20px var(--shadow-color); /* Deeper shadow */
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            padding-bottom: 75%; /* Maintain aspect ratio (4:3) for thumbnails */
+            border: 1px solid var(--border-color); /* Subtle border */
+        }
+
+        .game-card:hover {
+            transform: translateY(-8px); /* More pronounced lift */
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7); /* Stronger shadow on hover */
+        }
+
+        .game-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            transition: transform 0.4s ease;
+        }
+
+        .game-card:hover img {
+            transform: scale(1.1); /* More pronounced image zoom */
+        }
+
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%); /* Stronger gradient */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px; /* More padding */
+            box-sizing: border-box;
+            z-index: 1;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            text-align: left; /* Ensure text is left-aligned within overlay */
+        }
+
+        .game-card:hover .game-overlay {
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 50%, rgba(0, 0, 0, 0.1) 100%);
+        }
+
+        .game-title {
+            font-size: 1.3rem; /* Larger title */
+            font-weight: 600;
+            color: white;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Subtle text shadow */
+        }
+
+        .game-credits {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Removed .game-credits a styling as it's no longer a link */
+
+        #loadingMoreGames {
+            color: var(--text-color);
+            padding: 30px;
+            text-align: center;
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        /* Game Fullscreen Modal */
+        .game-modal-content {
+            background-color: var(--bg-color);
+            padding: 25px; /* Adjusted padding */
+            border-radius: 15px; /* Even more rounded */
+            max-width: 98%; /* Slightly larger */
+            width: 98%;
+            height: 98%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); /* Very deep shadow */
+        }
+
+        .game-modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 2rem; /* Larger title */
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        .game-modal-content .game-credits {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 20px;
+        }
+
+        .game-area {
+            display: flex;
+            flex-grow: 1;
+            gap: 20px; /* Increased gap */
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .game-ad-left, .game-ad-right {
+            flex-shrink: 0;
+            width: 180px; /* Slightly wider ad width */
+            background-color: var(--primary-color);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+        }
+
+        .game-ad-left iframe, .game-ad-right iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .game-iframe-wrapper {
+            flex-grow: 1;
+            background-color: #000; /* Solid black for game area */
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid var(--border-color); /* Thicker border */
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5); /* Inner shadow for depth */
+            position: relative; /* For loading indicator */
+        }
+
+        #gameIframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        #loadingIndicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-color);
+            font-size: 1.2rem;
+            z-index: 2;
+            display: none; /* Hidden by default */
+        }
+
+        .game-controller-panel {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* Increased gap */
+            padding: 15px 0;
+            flex-wrap: wrap;
+            background-color: var(--secondary-color); /* Panel background */
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            margin-top: 10px;
+        }
+
+        .game-controller-panel button {
+            padding: 12px 25px;
+            font-size: 1rem;
+            border-radius: 6px;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-controller-panel button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 122, 204, 0.3);
+        }
+
+        .game-modal-footer {
+            background-color: var(--primary-color); /* Footer matches primary color */
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            border-radius: 0 0 12px 12px; /* Rounded bottom corners */
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+        }
+
+        #statsEl {
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+        }
+
+        /* Keyframe animations */
+        @keyframes slideInGreeting {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOutGreeting {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 900px) {
+            #homePage .page-content-wrapper {
+                /* On smaller screens, ads should stack below the header and before center content */
+                grid-template-columns: 1fr; /* Single column */
+                grid-template-rows: auto auto auto 1fr; /* Header | Ad Left | Ad Right | Content */
+                gap: 25px;
+            }
+
+            #homePage header {
+                grid-row: 1 / 2;
+            }
+
+            .ad-left {
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 2 / 3; /* Second row */
+                height: 200px; /* Slightly smaller ads on medium screens */
+            }
+
+            .ad-right {
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 3 / 4; /* Third row */
+                height: 200px;
+            }
+
+            .center-content {
+                grid-column: 1 / -1; /* Spans full width */
+                grid-row: 4 / 5; /* Fourth row */
+            }
+
+            .main-footer {
+                /* No grid-row here as it's outside the grid on homePage */
+            }
+
+            .game-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 20px;
+                padding: 15px;
+            }
+
+            .game-modal-content {
+                padding: 20px;
+            }
+
+            .game-area {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .game-ad-left, .game-ad-right {
+                width: 100%;
+                height: 100px; /* Smaller ads in game modal on mobile */
+            }
+
+            .game-controller-panel {
+                flex-direction: row; /* Keep row for wider mobile */
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+            }
+
+            .game-controller-panel button {
+                flex: 1 1 auto; /* Allow buttons to grow/shrink */
+                min-width: 120px; /* Ensure minimum width */
+            }
+        }
+
+        @media (max-width: 600px) {
+            #animatedTitle {
+                font-size: 2.5rem;
+            }
+
+            .description-container p {
+                font-size: 1.1rem;
+            }
+
+            #startButton {
+                padding: 15px 35px;
+                font-size: 1.4rem;
+            }
+
+            .main-footer {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px 20px;
+            }
+
+            .main-footer nav a {
+                margin: 5px 8px;
+            }
+
+            .game-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                padding: 15px;
+            }
+
+            .game-modal-content h2 {
+                font-size: 1.5rem;
+            }
+
+            .game-controller-panel {
+                flex-direction: column; /* Stack buttons vertically on small phones */
+                gap: 8px;
+            }
+
+            .game-controller-panel button {
+                width: 100%;
+                min-width: unset;
+            }
+        }
+
+        /* Report Modal Specific Styles */
+        #reportModal .modal-content {
+            max-width: 600px;
+        }
+
+        #reportModal textarea {
+            width: calc(100% - 20px);
+            height: 120px;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+            resize: vertical; /* Allow vertical resizing */
+        }
+
+        #reportModal textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.3);
+        }
+
+        #reportModal .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Popup Modal for Name (initially hidden) -->
+    <div id="nameModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Welcome to ScriptPort!</h2>
+            <p>Please enter your name:</p>
+            <input type="text" id="userNameInput" placeholder="Your Name">
+            <button id="submitNameBtn">Enter</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="app">
+        <!-- Home Page View (initially visible after name input) -->
+        <div id="homePage" class="page-view">
+            <div class="page-content-wrapper"> <!-- New wrapper for content and background -->
+                <header class="main-menu-animation">
+                    <h1 id="animatedTitle"></h1> <!-- Title will be typed by JS -->
+                    <div class="description-container">
+                        <p>Your ultimate destination for unblocked school games. Dive into a world of fun and challenge, designed for seamless play on any device.</p>
+                    </div>
+                </header>
+                <aside class="ad-left">
+                    <!-- Ad Iframe Left -->
+                    <iframe src="about:blank" title="Advertisement Left" frameborder="0"></iframe>
+                </aside>
+                <aside class="ad-right">
+                    <!-- Ad Iframe Right -->
+                    <iframe src="about:blank" title="Advertisement Right" frameborder="0"></iframe>
+                </aside>
+                <div class="center-content">
+                    <button id="startButton">Start Playing</button>
+                </div>
+            </div>
+            <footer class="main-footer">
+                <nav>
+                    <a href="#">Terms</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Other Sites</a>
+                </nav>
+                <span>&copy; <span id="currentYear"></span> ScriptPort. All rights reserved.</span>
+                <div class="status-badge">
+                    Service Status: <span id="serviceStatus">Loading...</span>
+                </div>
+            </footer>
+        </div>
+
+        <!-- Games Page View (initially hidden) -->
+        <div id="gamesPage" class="page-view" style="display: none;">
+            <div class="page-content-wrapper"> <!-- New wrapper for content and background -->
+                <header>
+                    <h2>Our Games</h2>
+                    <p>Explore our curated collection of unblocked games. Find your next favorite and enjoy endless fun!</p>
+                    <div id="gameTotalDisplay"></div> <!-- Moved here -->
+                </header>
+                <div id="gamesGrid" class="game-grid">
+                    <!-- Games will be dynamically loaded here -->
+                </div>
+                <div id="loadingMoreGames" style="display: none; text-align: center; padding: 20px;">Loading more games...</div>
+            </div>
+            <footer class="main-footer">
+                <nav>
+                    <a href="#">Terms</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Other Sites</a>
+                </nav>
+                <span>&copy; <span id="gamesPageCurrentYear"></span> ScriptPort. All rights reserved.</span>
+                <div class="status-badge">
+                    Service Status: <span id="gamesPageServiceStatus">Loading...</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Game Fullscreen Modal (initially hidden) -->
+    <div id="gameModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content game-modal-content">
+            <h2 id="gameModalTitle"></h2>
+            <p class="game-credits" id="gameModalCredits"></p>
+            <div class="game-area">
+                <aside class="game-ad-left">
+                    <!-- Ad Iframe Left for game modal -->
+                    <iframe src="about:blank" title="Game Ad Left" frameborder="0"></iframe>
+                </aside>
+                <div class="game-iframe-wrapper">
+                    <div id="loadingIndicator">Loading Game...</div>
+                    <iframe id="gameIframe" src="about:blank" frameborder="0" allowfullscreen></iframe>
+                </div>
+                <aside class="game-ad-right">
+                    <!-- Ad Iframe Right for game modal -->
+                    <iframe src="about:blank" title="Game Ad Right" frameborder="0"></iframe>
+                </aside>
+            </div>
+            <div class="game-controller-panel">
+                <button id="fullscreenBtn">Fullscreen</button>
+                <button id="newTabBtn">New Tab</button>
+                <button id="lockMouseBtn">Lock Mouse</button>
+                <button id="refreshBtn">Refresh</button>
+                <button id="reportBtn">Report Issue</button> <!-- New Report Button -->
+                <button id="closeGameBtn">Close Game</button>
+            </div>
+            <div id="statsEl">FPS: --</div>
+            <footer class="game-modal-footer">
+                <span>Enjoy your game!</span>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Report Issue Modal (New) -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Report Issue for "<span id="reportGameTitle"></span>"</h2>
+            <p>Please describe the issue you are experiencing:</p>
+            <textarea id="issueDescription" placeholder="e.g., Game not loading, broken controls, inappropriate content, etc."></textarea>
+            <div class="button-group">
+                <button id="submitReportBtn">Submit Report</button>
+                <button id="cancelReportBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES & DOM ELEMENTS ---
+        const nameModal = document.getElementById('nameModal');
+        const userNameInput = document.getElementById('userNameInput');
+        const submitNameBtn = document.getElementById('submitNameBtn');
+        const appContainer = document.getElementById('app');
+        const homePage = document.getElementById('homePage');
+        const gamesPage = document.getElementById('gamesPage');
+        const animatedTitle = document.getElementById('animatedTitle');
+        const startButton = document.getElementById('startButton');
+        const currentYearSpan = document.getElementById('currentYear');
+        const gamesPageCurrentYearSpan = document.getElementById('gamesPageCurrentYear');
+        const serviceStatusBadge = document.getElementById('serviceStatus');
+        const gamesPageServiceStatusBadge = document.getElementById('gamesPageServiceStatus');
+        const gamesGrid = document.getElementById('gamesGrid');
+        const loadingMoreGames = document.getElementById('loadingMoreGames');
+        const gameModal = document.getElementById('gameModal');
+        const gameModalTitle = document.getElementById('gameModalTitle');
+        const gameModalCredits = document.getElementById('gameModalCredits');
+        const gameIframe = document.getElementById('gameIframe');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const newTabBtn = document.getElementById('newTabBtn');
+        const lockMouseBtn = document.getElementById('lockMouseBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const closeGameBtn = document.getElementById('closeGameBtn');
+        const reportBtn = document.getElementById('reportBtn'); // New Report button
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const statsEl = document.getElementById('statsEl');
+        const adLeftIframe = document.querySelector('.ad-left iframe'); // Get ad iframes
+        const adRightIframe = document.querySelector('.ad-right iframe');
+        const gameTotalDisplay = document.getElementById('gameTotalDisplay'); // New element for game total
+
+        // New Report Modal Elements
+        const reportModal = document.getElementById('reportModal');
+        const reportGameTitleSpan = document.getElementById('reportGameTitle');
+        const issueDescriptionTextarea = document.getElementById('issueDescription');
+        const submitReportBtn = document.getElementById('submitReportBtn');
+        const cancelReportBtn = document.getElementById('cancelReportBtn');
+
+        let userName = '';
+        let currentPage = 'home'; // Tracks current active page
+        let statsRunning = false; // New variable for stats
+        let animationFrameId; // To store the requestAnimationFrame ID for FPS counter
+
+        // IMPORTANT: REPLACE THIS URL WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+        // Instructions for deployment are provided after the code block.
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx7uPJgJarkSCUMzwDBsMgX9_4Uv2jPe_q_HccQ6mkr3Z0KNwvduxx2pyim2Dmo7QpQSg/exec'; 
+
+        // Define transition speed in milliseconds for JavaScript use
+        const transitionSpeedMs = 400; // Corresponds to --transition-speed: 0.4s in CSS
+
+        // --- GAME DATA (Internal JSON Object - Hardcoded) ---
+        // 'repoUrl' now points to the full GitHub *folder* URL where the game's index.html resides.
+        // Example: https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048
+ const allGamesData = [
+{
+id: 'space-blaster',
+title: 'Space Blaster',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Space+Blaster',
+repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/1v1lol'
+},
+{
+id: 'pixel-runner',
+title: 'Pixel Runner',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pixel+Runner',
+repoUrl: 'https://github.com/anotheruser/pixel-runner-game/tree/main/pixelrunner' // Example path
+},
+{
+id: 'block-puzzle',
+title: 'Block Puzzle',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Block+Puzzle',
+repoUrl: 'https://github.com/gamecreator/block-puzzle-game/tree/main/blockpuzzle' // Example path
+},
+{
+id: 'maze-escape',
+title: 'Maze Escape',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Maze+Escape',
+repoUrl: 'https://github.com/developer/maze-escape-game/tree/main/mazeescape' // Example path
+},
+{
+id: 'infinite-jumper',
+title: 'Infinite Jumper',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Infinite+Jumper',
+repoUrl: 'https://github.com/gamingdev/infinite-jumper-game/tree/main/infinitejumper' // Example path
+},
+{
+id: 'card-match',
+title: 'Card Match',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Card+Match',
+repoUrl: 'https://github.com/puzzlefun/card-match-game/tree/main/cardmatch' // Example path
+},
+{
+id: 'tower-defense',
+title: 'Tower Defense',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tower+Defense',
+repoUrl: 'https://github.com/strategyking/tower-defense-game/tree/main/towerdefense' // Example path
+},
+{
+id: 'color-switch',
+title: 'Color Switch',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Color+Switch',
+repoUrl: 'https://github.com/quickplay/color-switch-game/tree/main/colorswitch' // Example path
+},
+{
+id: 'snake-classic',
+title: 'Snake Classic',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Snake+Classic',
+repoUrl: 'https://github.com/retrodev/snake-classic-game/tree/main/snakeclassic' // Example path
+},
+{
+id: 'tetris-clone',
+title: 'Tetris Clone',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tetris+Clone',
+repoUrl: 'https://github.com/blockmaster/tetris-clone-game/tree/main/tetrisclone' // Example path
+},
+{
+id: 'flappy-bird',
+title: 'Flappy Bird',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Flappy+Bird',
+repoUrl: 'https://github.com/simplegames/flappy-bird-game/tree/main/flappybird' // Example path
+},
+{
+id: '2048',
+title: '2048',
+imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=2048',
+repoUrl: 'https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048' // User's provided example
+}
+];
+        let gamesRendered = 0;
+        const gamesPerPage = 12; // Number of games to load at once (increased for better initial view)
+
+        // --- AD DATA (Embedded JSON Configuration) ---
+        const allAdsData = [
+            {
+                id: 'ad-left-banner',
+                title: 'Left Side Ad',
+                url: 'https://placehold.co/300x250/333333/ffffff?text=Your+Ad+Here' // Placeholder ad URL
+            },
+            {
+                id: 'ad-right-banner',
+                title: 'Right Side Ad',
+                url: 'https://placehold.co/300x250/333333/ffffff?text=Another+Ad' // Placeholder ad URL
+            }
+            // Add more ad configurations here if needed
+        ];
+
+        // --- UTILITY FUNCTIONS ---
+
+        // Function to display a personalized greeting
+        function showGreeting(name) {
+            const greetingElement = document.createElement('p');
+            greetingElement.textContent = `Welcome, ${name}!`;
+            greetingElement.style.cssText = `
+                position: fixed;
+                top: 25px;
+                right: 25px;
+                background-color: var(--accent-color);
+                color: white;
+                padding: 12px 18px;
+                border-radius: 8px;
+                z-index: 1001;
+                opacity: 0;
+                transform: translateX(100%);
+                animation: slideInGreeting 0.6s forwards cubic-bezier(0.25, 0.46, 0.45, 0.94), fadeOutGreeting 0.8s 3s forwards;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+                font-size: 1rem;
+            `;
+            document.body.appendChild(greetingElement);
+
+            setTimeout(() => greetingElement.remove(), 4000); // Remove after total animation time
+        }
+
+        // Function to handle page transitions
+        function navigateTo(pageId) {
+            const allPages = document.querySelectorAll('.page-view');
+            const targetPage = document.getElementById(pageId);
+
+            // Fade out current active page
+            const currentActivePage = document.querySelector('.page-view.active');
+            if (currentActivePage) {
+                currentActivePage.classList.remove('active');
+                currentActivePage.style.transform = 'translateY(20px)'; // Slide down slightly
+                currentActivePage.style.opacity = '0';
+                setTimeout(() => {
+                    currentActivePage.style.display = 'none'; // Hide physically after transition
+                }, transitionSpeedMs); // Use JS variable here
+            }
+
+
+            if (targetPage) {
+                targetPage.style.display = 'flex'; // Show physically before animating
+                setTimeout(() => {
+                    targetPage.classList.add('active');
+                    targetPage.style.transform = 'translateY(0)'; // Slide up to position
+                    targetPage.style.opacity = '1';
+                }, 10); // Small delay for display property to take effect before transition
+                currentPage = pageId;
+            }
+        }
+
+        // Function for typing effect
+        function typeWriter(element, text, speed) {
+            let i = 0;
+            element.textContent = ''; // Clear existing text
+            element.classList.add('typing-effect'); // Add class to enable typing animation
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                } else {
+                    element.classList.remove('typing-effect'); // Remove cursor after typing
+                    element.style.borderRight = 'none'; // Ensure cursor is gone
+                }
+            }
+            type();
+        }
+
+        // Function to fetch GitHub Gist status (placeholder due to CORS)
+        async function fetchServiceStatus() {
+            const gistId = 'YOUR_GIST_ID_HERE'; // Replace with your actual Gist ID
+            const fileName = 'status.json'; // The name of the file inside the Gist
+            const gistUrl = `https://api.github.com/gists/${gistId}`;
+
+            try {
+                // This fetch will likely fail due to CORS on a local file or certain origins.
+                // In a production environment hosted on a web server, this might work if GitHub's CORS policy allows it,
+                // or you'd need a server-side proxy.
+                const response = await fetch(gistUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const statusFile = data.files[fileName];
+
+                if (statusFile) {
+                    const statusContent = JSON.parse(statusFile.content);
+                    const status = statusContent.status; // Assuming status.json has a 'status' field
+
+                    if (status === 'online') {
+                        serviceStatusBadge.textContent = 'Service Status: Online';
+                        serviceStatusBadge.classList.add('online');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Online';
+                        gamesPageServiceStatusBadge.classList.add('online');
+                    } else if (status === 'offline') {
+                        serviceStatusBadge.textContent = 'Service Status: Offline';
+                        serviceStatusBadge.classList.add('offline');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Offline';
+                        gamesPageServiceStatusBadge.classList.add('offline');
+                    } else {
+                        serviceStatusBadge.textContent = 'Service Status: Unknown';
+                        serviceStatusBadge.classList.remove('online', 'offline');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Unknown';
+                        gamesPageServiceStatusBadge.classList.remove('online', 'offline');
+                    }
+                } else {
+                    console.warn(`File '${fileName}' not found in Gist.`);
+                    serviceStatusBadge.textContent = 'Service Status: N/A';
+                    gamesPageServiceStatusBadge.textContent = 'Service Status: N/A';
+                }
+            } catch (error) {
+                console.error('Could not fetch service status:', error);
+                serviceStatusBadge.textContent = 'Service Status: Error';
+                serviceStatusBadge.classList.remove('online');
+                serviceStatusBadge.classList.add('offline'); // Indicate error as offline
+                gamesPageServiceStatusBadge.textContent = 'Service Status: Error';
+                gamesPageServiceStatusBadge.classList.remove('online');
+                gamesPageServiceStatusBadge.classList.add('offline');
+            }
+        }
+
+        // Function to render game cards
+        function renderGames() {
+            const fragment = document.createDocumentFragment();
+            // Render from allGamesData
+            const gamesToLoad = allGamesData.slice(gamesRendered, gamesRendered + gamesPerPage);
+
+            if (gamesToLoad.length === 0 && gamesRendered > 0) {
+                loadingMoreGames.style.display = 'none';
+                return; // All games loaded
+            }
+
+            gamesToLoad.forEach(game => {
+                const gameCard = document.createElement('div');
+                gameCard.classList.add('game-card');
+                gameCard.dataset.gameId = game.id; // Store game ID for click handler
+
+                // Extract username from GitHub repo URL
+                const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+
+                gameCard.innerHTML = `
+                    <img src="${game.imageUrl}" alt="${game.title} Thumbnail" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/400x300/3a3a3a/e0e0e0?text=No+Image';">
+                    <div class="game-overlay">
+                        <div class="game-title">${game.title}</div>
+                        <div class="game-credits">Credits: ${githubUsername}</div>
+                    </div>
+                `;
+                fragment.appendChild(gameCard);
+            });
+
+            gamesGrid.appendChild(fragment);
+            gamesRendered += gamesToLoad.length;
+
+            if (gamesRendered < allGamesData.length) { // Check against total fetched data
+                loadingMoreGames.style.display = 'block';
+            } else {
+                loadingMoreGames.style.display = 'none';
+            }
+            updateGameTotal(); // Update game total after rendering
+        }
+
+        // Function to update the dynamic game total
+        function updateGameTotal() {
+            gameTotalDisplay.textContent = `Total Games: ${allGamesData.length}`;
+        }
+
+        // Function to handle scroll for lazy loading
+        function handleScroll() {
+            if (currentPage === 'games' &&
+                (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 500) && // 500px from bottom
+                gamesRendered < allGamesData.length) { // Check against total fetched data
+                renderGames();
+            }
+        }
+
+        // Function to show a custom message box instead of alert()
+        function showMessageBox(message) {
+            const messageBox = document.createElement('div');
+            messageBox.textContent = message;
+            messageBox.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: var(--secondary-color);
+                color: var(--text-color);
+                padding: 20px 30px;
+                border-radius: 10px;
+                box-shadow: 0 5px 15px var(--shadow-color);
+                z-index: 1002;
+                opacity: 0;
+                animation: fadeIn 0.3s forwards, fadeOut 0.5s 2.5s forwards; /* Fade out after 2.5s */
+                font-size: 1.1rem;
+                text-align: center;
+            `;
+            document.body.appendChild(messageBox);
+            setTimeout(() => messageBox.remove(), 3000); // Remove message after 3 seconds total
+        }
+
+        // --- GAME LOADING LOGIC (from user provided snippet) ---
+
+        // FPS counter function
+        function startStats() {
+            statsRunning = true;
+            let frameCount = 0;
+            let lastTime = performance.now();
+
+            function updateFPS() {
+                if (!statsRunning) {
+                    cancelAnimationFrame(animationFrameId); // Stop the loop if not running
+                    return;
+                }
+
+                const currentTime = performance.now();
+                frameCount++;
+
+                // Update FPS every second
+                if (currentTime - lastTime >= 1000) {
+                    const fps = Math.round(frameCount / ((currentTime - lastTime) / 1000));
+                    statsEl.textContent = `FPS: ${fps}`;
+                    frameCount = 0;
+                    lastTime = currentTime;
+                }
+                animationFrameId = requestAnimationFrame(updateFPS);
+            }
+            animationFrameId = requestAnimationFrame(updateFPS); // Start the loop
+        }
+
+        // Function to load game into iframe by fetching HTML and rewriting paths
+        async function loadGameIntoIframe(repoUrl) {
+            loadingIndicator.style.display = 'block';
+            gameIframe.style.display = 'none';
+            gameIframe.srcdoc = ''; // Clear previous content
+
+            // Regex to match GitHub folder URL: github.com/user/repo/tree/branch/path/to/folder
+            const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)\/(.+)/);
+            if (!match) {
+                showMessageBox('Invalid GitHub folder URL format! Please ensure the URL points to a specific folder.');
+                loadingIndicator.style.display = 'none';
+                return;
+            }
+
+            const user = match[1];
+            const repo = match[2];
+            const branch = match[3];
+            const folderPath = match[4].replace(/\/$/, ""); // Remove trailing slash if any
+            const cdnBase = `https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/`;
+            const htmlFileUrl = `${cdnBase}${folderPath}/index.html`;
+
+            try {
+                let htmlContent = await (await fetch(htmlFileUrl)).text();
+
+                // Fix relative src/href paths inside the HTML to full CDN URLs
+                // This regex captures src="..." and href="..." attributes
+                htmlContent = htmlContent.replace(/(src|href)=["'](?!https?:\/\/|\/\/)([^"']+)["']/g, (match, attr, url) => {
+                    // Ensure the URL is not already absolute (http/https or //)
+                    // Also, handle cases where the URL might be a hash link (#) or root path (/)
+                    if (url.startsWith('#') || url.startsWith('/')) {
+                        return `${attr}="${url}"`; // Keep hash links and root paths as is (they might be handled by game's internal JS)
+                    }
+                    // Construct the absolute CDN URL for relative paths
+                    return `${attr}="${cdnBase}${folderPath}/${url}"`;
+                });
+
+                // Set the modified HTML content to the iframe's srcdoc
+                gameIframe.srcdoc = htmlContent;
+
+                // Handle iframe load event
+                gameIframe.onload = () => {
+                    loadingIndicator.style.display = 'none';
+                    gameIframe.style.display = 'block';
+                    startStats(); // Start stats once the game iframe has loaded
+                };
+            } catch (err) {
+                console.error("Error loading game:", err);
+                // Display error message inside the iframe
+                gameIframe.srcdoc = `<p style="color: red; text-align: center; padding: 20px;">Error loading game: ${err.message}. Please ensure the GitHub URL is correct and the game's index.html exists.</p>`;
+                loadingIndicator.style.display = 'none';
+                gameIframe.style.display = 'block';
+            }
+        }
+
+        function closeModal() {
+            gameModal.classList.remove('show');
+            setTimeout(() => {
+                gameModal.style.display = 'none';
+                gameIframe.srcdoc = ''; // Clear iframe content
+                statsRunning = false; // Stop stats
+                cancelAnimationFrame(animationFrameId); // Ensure FPS counter stops
+                statsEl.textContent = 'FPS: --'; // Reset stats display
+            }, 400); // Match modal transition speed
+        }
+
+        // --- REPORTING FUNCTIONALITY ---
+
+        function showReportModal() {
+            reportGameTitleSpan.textContent = gameModalTitle.textContent; // Set game title in report modal
+            issueDescriptionTextarea.value = ''; // Clear previous input
+            reportModal.style.display = 'flex';
+            setTimeout(() => reportModal.classList.add('show'), 10);
+        }
+
+        function hideReportModal() {
+            reportModal.classList.remove('show');
+            setTimeout(() => reportModal.style.display = 'none', 400);
+        }
+
+        async function sendReportToGoogleSheet(gameTitle, issueDescription) {
+            if (GOOGLE_SHEET_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE' || !GOOGLE_SHEET_WEB_APP_URL) {
+                showMessageBox('Report feature not configured. Please set up Google Apps Script URL as instructed.');
+                return;
+            }
+
+            const data = {
+                game: gameTitle,
+                issue: issueDescription,
+                timestamp: new Date().toLocaleString()
+            };
+
+            try {
+                // Using 'no-cors' mode is necessary for direct browser-to-Apps-Script communication
+                // without complex CORS preflight issues. However, it means the browser won't
+                // receive a direct success/failure response from the Apps Script.
+                // You'll need to check your Google Sheet for successful submissions.
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                // Since mode is 'no-cors', response.ok will always be true and response.text() might be empty.
+                // We rely on the Apps Script logs for actual success/failure.
+                showMessageBox('Report submitted! Please check your Google Sheet for confirmation.');
+                hideReportModal();
+            } catch (error) {
+                console.error('Network error sending report:', error);
+                showMessageBox('Failed to submit report due to a network error. Please check your connection.');
+            }
+        }
+
+        // --- AD LOADING FUNCTION ---
+        function loadAds() {
+            // Load the left ad
+            if (adLeftIframe && allAdsData[0]) {
+                adLeftIframe.src = allAdsData[0].url;
+                adLeftIframe.title = allAdsData[0].title;
+            } else if (adLeftIframe) {
+                adLeftIframe.srcdoc = '<p style="color: grey; text-align: center; font-size: 0.9em;">Ad Not Available</p>';
+            }
+
+            // Load the right ad
+            if (adRightIframe && allAdsData[1]) {
+                adRightIframe.src = allAdsData[1].url;
+                adRightIframe.title = allAdsData[1].title;
+            } else if (adRightIframe) {
+                adRightIframe.srcdoc = '<p style="color: grey; text-align: center; font-size: 0.9em;">Ad Not Available</p>';
+            }
+        }
+
+
+        // --- EVENT LISTENERS ---
+
+        // Name Modal Submission
+        submitNameBtn.addEventListener('click', () => {
+            const name = userNameInput.value.trim();
+            if (name) {
+                userName = name;
+                nameModal.classList.remove('show');
+                setTimeout(() => {
+                    nameModal.style.display = 'none'; // Fully hide after transition
+                    appContainer.classList.add('show-app'); // Smoothly show main app container
+                    homePage.classList.add('active'); // Activate home page
+                    typeWriter(animatedTitle, `Welcome, ${userName}!`, 100);
+                    showGreeting(userName); // Show a splash greeting
+                    loadAds(); // Load ads after name input
+                }, 400); // Match modal transition speed
+            } else {
+                userNameInput.placeholder = 'Please enter your name!';
+                userNameInput.focus();
+            }
+        });
+
+        // Allow Enter key to submit name
+        userNameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                submitNameBtn.click();
+            }
+        });
+
+        // Start Button to Games Page
+        startButton.addEventListener('click', () => {
+            navigateTo('gamesPage');
+            // Render games when navigating to games page
+            if (gamesRendered === 0) {
+                renderGames();
+            }
+            updateGameTotal(); // Ensure total is updated when navigating to games page
+        });
+
+        // Games Grid Click Handler (Delegation)
+        gamesGrid.addEventListener('click', (event) => {
+            const gameCard = event.target.closest('.game-card');
+            if (gameCard) {
+                const gameId = gameCard.dataset.gameId;
+                const game = allGamesData.find(g => g.id === gameId);
+                if (game) {
+                    gameModalTitle.textContent = game.title;
+                    // Extract username for game modal credits
+                    const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                    const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+                    gameModalCredits.textContent = `Credits: ${githubUsername}`;
+
+                    // Call the new loadGameIntoIframe function with the game's repoUrl
+                    loadGameIntoIframe(game.repoUrl);
+                    gameModal.style.display = 'flex';
+                    setTimeout(() => gameModal.classList.add('show'), 10); // Show with transition
+                }
+            }
+        });
+
+        // Game Modal Controls
+        closeGameBtn.addEventListener('click', closeModal); // Use the new closeModal function
+        gameModal.addEventListener('click', e => { // Close modal on overlay click
+            if (e.target === gameModal) closeModal();
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (gameIframe.requestFullscreen) {
+                gameIframe.requestFullscreen();
+            } else if (gameIframe.mozRequestFullScreen) { /* Firefox */
+                gameIframe.mozRequestFullScreen();
+            } else if (gameIframe.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                gameIframe.webkitRequestFullscreen();
+            } else {
+                showMessageBox('Fullscreen not supported or allowed by your browser/device for this content.');
+            }
+        });
+
+        // Updated New Tab Button Logic
+        newTabBtn.addEventListener('click', async () => {
+            const game = allGamesData.find(g => g.title === gameModalTitle.textContent);
+            if (!game || !game.repoUrl) {
+                showMessageBox('Cannot open game in new tab: Game data not found or invalid repository URL.');
+                return;
+            }
+
+            const repoUrl = game.repoUrl;
+            const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)\/(.+)/);
+            if (!match) {
+                showMessageBox('Cannot open game in new tab: Invalid GitHub folder URL format.');
+                return;
+            }
+
+            const user = match[1];
+            const repo = match[2];
+            const branch = match[3];
+            const folderPath = match[4].replace(/\/$/, "");
+            const cdnBase = `https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/`;
+            const htmlFileUrl = `${cdnBase}${folderPath}/index.html`;
+
+            let newWindow = null; // Declare newWindow outside try-catch for broader scope
+
+            try {
+                // Open a new window immediately
+                newWindow = window.open('about:blank', '_blank', 'width=1024,height=768,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=yes');
+
+                if (!newWindow) {
+                    showMessageBox('Pop-up blocked! Please allow pop-ups for this site to open games in a new window.');
+                    return;
+                }
+
+                // Initial HTML for the new window with a loading indicator
+                newWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${game.title}</title>
+                        <style>
+                            body {
+                                margin: 0;
+                                padding: 0;
+                                overflow: hidden;
+                                height: 100vh;
+                                width: 100vw;
+                                background-color: #000;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                color: white;
+                                font-family: 'Inter', sans-serif; /* Use Inter for consistency */
+                            }
+                            iframe {
+                                border: none;
+                                width: 100%;
+                                height: 100%;
+                                display: block;
+                                visibility: hidden; /* Hide until loaded */
+                            }
+                            #loading {
+                                font-size: 1.5em;
+                                animation: pulse 1.5s infinite alternate; /* Simple loading animation */
+                            }
+                            @keyframes pulse {
+                                from { opacity: 0.5; }
+                                to { opacity: 1; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div id="loading">Loading game...</div>
+                        <iframe id="gameContentIframe" src="about:blank" frameborder="0" allowfullscreen></iframe>
+                    </body>
+                    </html>
+                `);
+                newWindow.document.close(); // Important: Close the document stream
+
+                // Get references to elements in the new window (after document.write)
+                const newWindowIframe = newWindow.document.getElementById('gameContentIframe');
+                const newWindowLoading = newWindow.document.getElementById('loading');
+
+                // Fetch and process the game's index.html
+                let htmlContent = await (await fetch(htmlFileUrl)).text();
+
+                // Rewrite relative paths
+                htmlContent = htmlContent.replace(/(src|href)=["'](?!https?:\/\/|\/\/)([^"']+)["']/g, (match, attr, url) => {
+                    if (url.startsWith('#') || url.startsWith('/')) {
+                        return `${attr}="${url}"`;
+                    }
+                    return `${attr}="${cdnBase}${folderPath}/${url}"`;
+                });
+
+                // Set srcdoc and handle load
+                newWindowIframe.srcdoc = htmlContent;
+                newWindowIframe.onload = () => {
+                    if (newWindowLoading) newWindowLoading.style.display = 'none'; // Hide loading
+                    if (newWindowIframe) newWindowIframe.style.visibility = 'visible'; // Show iframe
+                };
+
+            } catch (err) {
+                console.error("Error opening game in new tab:", err);
+                if (newWindow && newWindow.document && newWindow.document.body) {
+                    newWindow.document.body.innerHTML = `<p style="color: red; text-align: center; padding: 20px;">Error loading game: ${err.message}. Please ensure the GitHub URL is correct and the game's index.html exists.</p>`;
+                } else {
+                    showMessageBox(`Error opening game in new tab: ${err.message}`);
+                }
+            }
+        });
+
+
+        refreshBtn.addEventListener('click', () => {
+            // To refresh, we need to re-load the game using the same logic
+            const game = allGamesData.find(g => g.title === gameModalTitle.textContent);
+            if (game && game.repoUrl) {
+                loadGameIntoIframe(game.repoUrl);
+            } else {
+                showMessageBox('Cannot refresh: Game data not found.');
+            }
+        });
+
+// --- Report Button Event Listeners ---
+reportBtn.addEventListener('click', showReportModal);
+
+submitReportBtn.addEventListener('click', () => {
+    const gameTitle = reportGameTitleSpan.textContent;
+    const issueDescription = issueDescriptionTextarea.value.trim();
+
+    if (issueDescription) {
+        sendReportToGoogleSheet(gameTitle, issueDescription);
+    } else {
+        showMessageBox('Please provide a description for the issue.');
+    }
+});
+
+cancelReportBtn.addEventListener('click', hideReportModal);
+
+reportModal.addEventListener('click', (e) => {
+    if (e.target === reportModal) {
+        hideReportModal();
+    }
+});
+
+// --- Lazy load games on scroll ---
+window.addEventListener('scroll', handleScroll);
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Set current year in footers
+    const year = new Date().getFullYear();
+    currentYearSpan.textContent = year;
+    gamesPageCurrentYearSpan.textContent = year;
+
+    // Show the name modal on page load
+    nameModal.classList.add('show');
+    userNameInput.focus();
+
+    // Fetch service status
+    fetchServiceStatus();
+    // Initial render of games is now triggered when navigating to the games page
+});
+    </script>
+</body>
+</html>
