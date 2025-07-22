@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptPort</title>
+    <!-- Inter Font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* General Styles */
+        :root {
+            --bg-color: #0F0F0F; /* Even deeper, richer dark background */
+            --text-color: #E0E0E0;
+            --primary-color: #282828; /* Darker, more matte grey for elements */
+            --secondary-color: #1A1A1A; /* Slightly lighter than primary for contrast, closer to background */
+            --accent-color: #0088CC; /* A vibrant, deep blue for highlights */
+            --border-color: #3A3A3A; /* Slightly lighter border for subtle definition */
+            --shadow-color: rgba(0, 0, 0, 0.7); /* Deeper shadows */
+            --transition-speed: 0.4s;
+            --glow-color: rgba(0, 136, 204, 0.4); /* Vibrant blue glow */
+            --error-color: #DC3545; /* Standard red for errors */
+            --error-border: #C82333;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font */
+            background-color: var(--bg-color); /* Solid background for the body */
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden; /* Prevent horizontal scroll from animations */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        #app {
+            width: 100%;
+            max-width: 1200px; /* Max width for content */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 50px var(--shadow-color); /* Deeper, more pronounced shadow for the app container */
+            border-radius: 16px; /* Slightly more rounded corners for the overall app */
+            position: relative;
+            overflow: hidden; /* For page transitions */
+            opacity: 0; /* Initially hidden for smooth entrance */
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        #app::before {
+            content: "SP";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg); /* Sideways and stuff */
+            font-size: 20vw; /* Large and responsive */
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.02); /* Very subtle */
+            z-index: -1; /* Behind other content */
+            pointer-events: none; /* Don't block clicks */
+            user-select: none; /* Non-selectable */
+            white-space: nowrap; /* Keep "SP" on one line */
+        }
+
+        #app.show-app {
+            opacity: 1;
+        }
+
+        .page-view {
+            width: 100%;
+            min-height: 100vh; /* Keep for transitions, content wrapper handles actual height */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Push footer to bottom */
+            opacity: 0;
+            transform: translateY(20px); /* Slight slide-up effect */
+            transition: opacity var(--transition-speed) ease-in-out, transform var(--transition-speed) ease-in-out;
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 1px solid var(--border-color); /* Border around the page view */
+            border-radius: 16px; /* Match app container radius */
+            box-shadow: 0 0 25px var(--shadow-color); /* Shadow for the page view */
+            overflow: hidden; /* Ensure content and background are clipped by border-radius */
+        }
+
+        .page-view.active {
+            opacity: 1;
+            transform: translateY(0);
+            position: relative; /* Bring active page to front for interaction */
+        }
+
+        .page-content-wrapper { /* New wrapper for content and textured background */
+            flex-grow: 1;
+            padding: 30px; /* Padding for content inside the border */
+            background-color: var(--bg-color); /* Base color for the dots */
+            background-image: radial-gradient(circle at center, #252525 1px, transparent 1px), radial-gradient(circle at center, #252525 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            display: flex;
+            flex-direction: column;
+            /* New borders for the textured part */
+            border: 1px solid var(--border-color); /* Border around the entire textured area */
+            border-radius: 12px; /* Slightly smaller radius than .page-view for nested look */
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4); /* Inner shadow for depth */
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Darker overlay */
+            backdrop-filter: blur(8px); /* More pronounced blur effect */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--secondary-color);
+            padding: 45px; /* Increased padding */
+            border-radius: 16px; /* More rounded */
+            box-shadow: 0 10px 30px var(--shadow-color); /* Deeper shadow */
+            text-align: center;
+            max-width: 550px; /* Slightly wider */
+            width: 90%;
+            transform: translateY(-40px) scale(0.9); /* Initial state for pop-in */
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.4s ease; /* Bouncy transition */
+            border: 1px solid var(--border-color); /* Subtle border for modals */
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        .modal-content h2 {
+            color: var(--text-color);
+            margin-bottom: 30px; /* More space */
+            font-weight: 600; /* Bolder title */
+            font-size: 2.2rem;
+        }
+
+        .modal-content p {
+            font-size: 1.15rem; /* Slightly larger font */
+            color: rgba(255, 255, 255, 0.85); /* Slightly brighter text */
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .modal-content input[type="text"] {
+            width: calc(100% - 24px); /* Account for padding */
+            padding: 16px; /* Larger padding */
+            margin-bottom: 30px; /* More space */
+            border: 1px solid var(--border-color);
+            border-radius: 10px; /* More rounded */
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            font-size: 1.1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .modal-content input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 4px rgba(0, 136, 204, 0.4); /* Stronger focus glow */
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            border: none;
+            padding: 15px 35px; /* Larger padding */
+            border-radius: 10px; /* More rounded */
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease, border 0.3s ease;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.15); /* Slightly more visible ripple */
+            border-radius: 50%;
+            transition: width 0.4s ease, height 0.4s ease, top 0.4s ease, left 0.4s ease;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        button:hover::before {
+            width: 200%;
+            height: 200%;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-4px); /* More pronounced lift */
+            box-shadow: 0 8px 20px rgba(0, 136, 204, 0.5); /* Stronger accent shadow */
+        }
+
+        button:active {
+            transform: translateY(0);
+            background-color: var(--primary-color);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5); /* Reset shadow on active */
+        }
+
+        /* Home Page Specifics */
+        #homePage.page-view { /* #homePage itself is now the grid container */
+            display: flex; /* Changed to flex for simpler layout without ads */
+            flex-direction: column;
+            align-items: center; /* Center content horizontally */
+            gap: 25px; /* Gap between sections */
+            padding: 25px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        #homePage .page-content-wrapper {
+            width: 100%; /* Take full width */
+            max-width: 900px; /* Constrain content width */
+            margin: 0 auto; /* Center content wrapper */
+        }
+
+        #homePage header {
+            padding: 40px 20px 0;
+            position: relative;
+            width: 100%;
+            text-align: center;
+        }
+
+        #animatedTitle {
+            font-size: 4.5rem;
+            color: var(--text-color);
+            margin-bottom: 30px;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 0.15em solid var(--text-color);
+            animation: blink-caret 0.75s step-end infinite;
+            font-weight: 700;
+            letter-spacing: -2px;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+
+        .typing-effect {
+            width: 0;
+            animation: typing 2s steps(100, end) forwards;
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: var(--text-color); }
+        }
+
+        .description-container {
+            background-color: var(--secondary-color);
+            padding: 35px 45px;
+            border-radius: 16px;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px var(--shadow-color);
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .description-container::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: conic-gradient(from 0deg at 50% 50%, transparent 0%, var(--glow-color) 20%, transparent 40%, transparent 60%, var(--glow-color) 80%, transparent 100%);
+            animation: rotateGlow 8s linear infinite;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            opacity: 0.8;
+        }
+
+        .description-container p {
+            position: relative;
+            z-index: 1;
+            font-size: 1.4rem;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 300;
+        }
+
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1.2); }
+        }
+
+        .description-container::after {
+            content: '';
+            position: absolute;
+            inset: 3px;
+            background-color: var(--secondary-color);
+            border-radius: 14px;
+            z-index: 0;
+        }
+
+        /* Ads are removed from HTML, so these styles are no longer needed */
+        /* .ad-left, .ad-right { display: none; } */
+        /* .ad-left iframe, .ad-right iframe { display: none; } */
+
+        .center-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 70px 0;
+        }
+
+        #startButton {
+            padding: 20px 60px;
+            font-size: 1.8rem;
+            border-radius: 12px;
+            background-color: var(--accent-color);
+            color: white;
+            box-shadow: 0 8px 25px rgba(0, 136, 204, 0.5);
+            font-weight: 600;
+        }
+
+        #startButton:hover {
+            background-color: #0077B3;
+            box-shadow: 0 10px 30px rgba(0, 136, 204, 0.7);
+            transform: translateY(-5px);
+        }
+
+        /* Footer Styles */
+        .main-footer {
+            width: 100%; /* Ensure footer spans full width in flex context */
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            padding: 25px 30px;
+            text-align: center;
+            font-size: 1rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            border-radius: 0 0 16px 16px;
+            margin-top: auto; /* Push footer to bottom */
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .main-footer nav a {
+            color: rgba(255, 255, 255, 0.75);
+            text-decoration: none;
+            margin: 0 15px;
+            transition: color 0.2s ease;
+            font-weight: 400;
+            cursor: pointer;
+        }
+
+        .main-footer nav a:hover {
+            color: var(--accent-color);
+            text-shadow: 0 0 5px rgba(0, 136, 204, 0.3);
+        }
+
+        .status-badge {
+            background-color: var(--secondary-color);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-badge::before {
+            content: '●';
+            color: #ffc107;
+            font-size: 1.4em;
+            line-height: 1;
+        }
+        .status-badge.online::before { color: #28a745; }
+        .status-badge.offline::before { color: #dc3545; }
+
+        /* Games Page Specifics */
+        #gamesPage .page-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding-bottom: 40px;
+        }
+
+        #gamesPage header {
+            text-align: left;
+            padding: 35px;
+            width: calc(100% - 70px);
+            max-width: 1200px;
+            margin: 0 auto 35px auto;
+            background-color: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 25px var(--shadow-color);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        #gamesPage header h2 {
+            font-size: 2.8rem;
+            color: var(--text-color);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        #gamesPage header p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: 0;
+            margin-bottom: 20px;
+            max-width: 850px;
+        }
+
+        #gameTotalDisplay {
+            font-size: 1.05rem;
+            color: var(--accent-color);
+            background-color: var(--primary-color);
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+            margin-top: 15px;
+            align-self: flex-start;
+        }
+
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 0 30px;
+            flex-grow: 1;
+            width: 100%;
+        }
+
+        .game-card {
+            background-color: var(--secondary-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px var(--shadow-color);
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            padding-bottom: 70%;
+            border: 1px solid var(--border-color);
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .game-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            transition: transform 0.4s ease;
+        }
+
+        .game-card:hover img {
+            transform: scale(1.15);
+        }
+
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 25px;
+            box-sizing: border-box;
+            z-index: 1;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            text-align: left;
+        }
+
+        .game-card:hover .game-overlay {
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.8) 50%, rgba(0, 0, 0, 0.1) 100%);
+        }
+
+        .game-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+        }
+
+        .game-credits {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #loadingMoreGames {
+            color: var(--text-color);
+            padding: 40px;
+            text-align: center;
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        /* Game Fullscreen Modal */
+        .game-modal-content {
+            background-color: var(--bg-color);
+            padding: 20px; /* Reduced padding to give more space to iframe */
+            border-radius: 20px;
+            max-width: 96%;
+            width: 96%;
+            height: 96%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.95);
+            border: 1px solid var(--border-color);
+        }
+
+        .game-modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 10px; /* Reduced margin */
+            font-size: 2rem; /* Slightly smaller title for more space */
+            color: var(--text-color);
+            font-weight: 700;
+        }
+
+        .game-modal-content .game-credits {
+            font-size: 1rem; /* Slightly smaller credits for more space */
+            color: rgba(255, 255, 255, 0.75);
+            margin-bottom: 15px; /* Reduced margin */
+        }
+
+        .game-area {
+            display: flex;
+            flex-grow: 1;
+            gap: 0; /* Removed gap as side ads are gone */
+            margin-bottom: 20px; /* Reduced margin */
+            overflow: hidden;
+        }
+
+        /* Removed game-ad-left, game-ad-right styles as they are removed from HTML */
+        /* .game-ad-left, .game-ad-right { display: none; } */
+
+        .game-iframe-wrapper {
+            flex-grow: 1;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 3px solid var(--accent-color);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        #gameIframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        #loadingIndicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-color);
+            font-size: 1.3rem;
+            z-index: 2;
+            display: none;
+        }
+
+        .game-controller-panel {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px 0;
+            flex-wrap: wrap;
+            background-color: var(--secondary-color);
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .game-controller-panel button {
+            padding: 14px 28px;
+            font-size: 1.05rem;
+            border-radius: 8px;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-controller-panel button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 12px rgba(0, 136, 204, 0.4);
+        }
+
+        .game-modal-footer {
+            background-color: var(--primary-color);
+            padding: 12px 25px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 0 0 16px 16px;
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+        }
+
+        #statsEl {
+            text-align: center;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 12px;
+        }
+
+        /* Links Modal Specific Styles */
+        #linksModal .modal-content {
+            max-width: 750px;
+            text-align: left;
+        }
+
+        #linksModal .modal-content h2 {
+            text-align: center;
+        }
+
+        .links-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: var(--primary-color);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .links-section h3 {
+            color: var(--accent-color);
+            font-size: 1.3rem;
+            margin-top: 0;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            padding-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .links-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .links-section ul li {
+            margin-bottom: 10px;
+        }
+
+        .links-section ul li a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 1.05rem;
+            transition: color 0.2s ease, text-shadow 0.2s ease;
+            display: block;
+            padding: 5px 0;
+        }
+
+        .links-section ul li a:hover {
+            color: var(--accent-color);
+            text-decoration: underline;
+            text-shadow: 0 0 3px rgba(0, 136, 204, 0.3);
+        }
+
+        /* Report Button Loader */
+        #submitReportBtn.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        #submitReportBtn .loader {
+            display: none;
+            margin-left: 10px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--accent-color);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            animation: spin 1s linear infinite;
+        }
+
+        #submitReportBtn.loading .loader {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Keyframe animations */
+        @keyframes slideInGreeting {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOutGreeting {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* New styles for message box and animation */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            padding: 25px 35px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px var(--shadow-color);
+            z-index: 1002;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards, fadeOut 0.5s 2.5s forwards;
+            font-size: 1.2rem;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-width: 280px;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-box.error {
+            background-color: var(--error-color);
+            color: white;
+            animation: fadeIn 0.3s forwards, shake 0.5s cubic-bezier(.36,.07,.19,.97) both, fadeOut 0.5s 2.5s forwards;
+            border: 1px solid var(--error-border);
+        }
+
+        .message-box.error .icon-circle-x {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .message-box.error .icon-circle-x svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate(-50%, -50%) translateX(-2px); }
+            20%, 80% { transform: translate(-50%, -50%) translateX(4px); }
+            30%, 50%, 70% { transform: translate(-50%, -50%) translateX(-8px); }
+            40%, 60% { transform: translate(-50%, -50%) translateX(8px); }
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 900px) {
+            #homePage.page-view {
+                gap: 20px;
+                padding: 15px;
+            }
+
+            /* Ads removed, so these media queries are no longer needed */
+            /* .ad-left, .ad-right { display: none; } */
+
+            #homePage header {
+                text-align: center;
+                padding: 25px 15px 0;
+            }
+
+            #animatedTitle {
+                font-size: 3.5rem;
+            }
+
+            .description-container {
+                padding: 25px 30px;
+            }
+
+            .description-container p {
+                font-size: 1.2rem;
+            }
+
+            .center-content {
+                padding: 50px 0;
+            }
+
+            #startButton {
+                padding: 18px 45px;
+                font-size: 1.5rem;
+            }
+
+            .game-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 20px;
+                padding: 0 20px;
+            }
+
+            .modal-content {
+                padding: 30px;
+            }
+
+            .game-area {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            /* Ads removed, so these media queries are no longer needed */
+            /* .game-ad-left, .game-ad-right { display: none; } */
+
+            .game-controller-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .game-controller-panel button {
+                flex: 1 1 auto;
+                min-width: 140px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            /* Ads removed, so these media queries are no longer needed */
+            /* .ad-left, .ad-right { display: none; } */
+            #homePage.page-view {
+                gap: 15px;
+                padding: 10px;
+            }
+
+            #animatedTitle {
+                font-size: 2.8rem;
+                margin-bottom: 20px;
+            }
+
+            .description-container {
+                padding: 20px 25px;
+                border-radius: 12px;
+            }
+
+            .description-container p {
+                font-size: 1rem;
+            }
+
+            #startButton {
+                padding: 14px 30px;
+                font-size: 1.2rem;
+            }
+
+            .main-footer {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+                font-size: 0.85rem;
+            }
+
+            .main-footer nav a {
+                margin: 5px 10px;
+            }
+
+            .game-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 15px;
+                padding: 0 15px;
+            }
+
+            .modal-content h2 {
+                font-size: 1.8rem;
+            }
+
+            .modal-content p {
+                font-size: 1rem;
+            }
+
+            .modal-content input[type="text"] {
+                padding: 12px;
+                font-size: 1rem;
+            }
+
+            .game-controller-panel {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .game-controller-panel button {
+                width: 100%;
+                min-width: unset;
+                padding: 10px 20px;
+                font-size: 0.95rem;
+            }
+
+            .message-box {
+                padding: 18px 25px;
+                font-size: 1rem;
+                min-width: 200px;
+            }
+
+            .message-box.error .icon-circle-x {
+                width: 24px;
+                height: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Popup Modal for Name (initially hidden) -->
+    <div id="nameModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Welcome to ScriptPort!</h2>
+            <p>Please enter your school name:</p>
+            <input type="text" id="schoolNameInput" placeholder="Your School Name">
+            <button id="submitNameBtn">Enter</button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="app">
+        <!-- Home Page View (initially visible after name input) -->
+        <div id="homePage" class="page-view">
+            <!-- Ads removed from here -->
+            <div class="page-content-wrapper"> <!-- Main content area -->
+                <header class="main-menu-animation">
+                    <h1 id="animatedTitle"></h1> <!-- Title will be typed by JS -->
+                    <div class="description-container">
+                        <p>Your ultimate destination for unblocked school games. Dive into a world of fun and challenge, designed for seamless play on any device.</p>
+                    </div>
+                </header>
+                <div class="center-content">
+                    <button id="startButton">Start Playing</button>
+                </div>
+            </div>
+            <footer class="main-footer">
+                <nav>
+                    <a href="#" id="termsLinkHome">Terms</a>
+                    <a href="#" id="privacyPolicyLinkHome">Privacy Policy</a>
+                    <a href="#" id="otherSitesLinkHome">Other Sites</a>
+                </nav>
+                <span>&copy; <span id="currentYear"></span> ScriptPort. All rights reserved.</span>
+                <div class="status-badge">
+                    Service Status: <span id="serviceStatus">Loading...</span>
+                </div>
+            </footer>
+        </div>
+
+        <!-- Games Page View (initially hidden) -->
+        <div id="gamesPage" class="page-view" style="display: none;">
+            <div class="page-content-wrapper"> <!-- New wrapper for content and background -->
+                <header>
+                    <h2>Our Games</h2>
+                    <p>Explore our curated collection of unblocked games. Find your next favorite and enjoy endless fun!</p>
+                    <div id="gameTotalDisplay"></div> <!-- Moved here -->
+                </header>
+                <div id="gamesGrid" class="game-grid">
+                    <!-- Games will be dynamically loaded here -->
+                </div>
+                <div id="loadingMoreGames" style="display: none; text-align: center; padding: 20px;">Loading more games...</div>
+            </div>
+            <footer class="main-footer">
+                <nav>
+                    <a href="#" id="termsLinkGames">Terms</a>
+                    <a href="#" id="privacyPolicyLinkGames">Privacy Policy</a>
+                    <a href="#" id="otherSitesLinkGames">Other Sites</a>
+                </nav>
+                <span>&copy; <span id="gamesPageCurrentYear"></span> ScriptPort. All rights reserved.</span>
+                <div class="status-badge">
+                    Service Status: <span id="gamesPageServiceStatus">Loading...</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Game Fullscreen Modal (initially hidden) -->
+    <div id="gameModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content game-modal-content">
+            <h2 id="gameModalTitle"></h2>
+            <p class="game-credits" id="gameModalCredits"></p>
+            <div class="game-area">
+                <!-- Ads removed from here -->
+                <div class="game-iframe-wrapper">
+                    <div id="loadingIndicator">Loading Game...</div>
+                    <iframe id="gameIframe" src="about:blank" frameborder="0" allowfullscreen></iframe>
+                </div>
+            </div>
+            <div class="game-controller-panel">
+                <button id="fullscreenBtn">Fullscreen</button>
+                <button id="newTabBtn">New Tab</button>
+                <button id="lockMouseBtn">Lock Mouse</button>
+                <button id="refreshBtn">Refresh</button>
+                <button id="reportBtn">Report Issue</button> <!-- New Report Button -->
+                <button id="closeGameBtn">Close Game</button>
+            </div>
+            <div id="statsEl">FPS: --</div>
+            <footer class="game-modal-footer">
+                <span>Enjoy your game!</span>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Report Issue Modal (New) -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Report Issue for "<span id="reportGameTitle"></span>"</h2>
+            <p>Please describe the issue you are experiencing:</p>
+            <textarea id="issueDescription" placeholder="e.g., Game not loading, broken controls, inappropriate content, etc."></textarea>
+            <div class="button-group">
+                <button id="submitReportBtn">
+                    Submit Report <span class="loader"></span>
+                </button>
+                <button id="cancelReportBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms Modal -->
+    <div id="termsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Terms of Service</h2>
+            <p>Welcome to ScriptPort! By accessing or using our website, you agree to be bound by these Terms of Service. Please read them carefully.</p>
+            <p><strong>1. Acceptance of Terms:</strong> Your access to and use of ScriptPort is conditioned upon your acceptance of and compliance with these Terms. These Terms apply to all visitors, users, and others who access or use the Service.</p>
+            <p><strong>2. Use of Service:</strong> You agree to use ScriptPort only for lawful purposes and in a way that does not infringe the rights of, restrict or inhibit anyone else's use and enjoyment of the Service. Prohibited behavior includes harassing or causing distress or inconvenience to any other user, transmitting obscene or offensive content, or disrupting the normal flow of dialogue within ScriptPort.</p>
+            <p><strong>3. Intellectual Property:</strong> All content, trademarks, service marks, trade names, logos, and icons are proprietary to ScriptPort or its affiliates or agents. Nothing contained on the website should be construed as granting any license or right to use any trademark displayed on this website without the written permission of ScriptPort or such third party that may own the trademarks.</p>
+            <p><strong>4. Disclaimer:</strong> The games provided on ScriptPort are sourced from external repositories (e.g., GitHub). We do not host these games directly and are not responsible for their content, functionality, or any issues that may arise from their use. We strive to provide access to safe and functional games, but we cannot guarantee their reliability or suitability for all users.</p>
+            <p><strong>5. Changes to Terms:</strong> We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will try to provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at our sole discretion.</p>
+            <p><strong>6. Contact Us:</strong> If you have any questions about these Terms, please contact us through the provided channels.</p>
+            <button id="closeTermsModalBtn">Close</button>
+        </div>
+    </div>
+
+    <!-- Privacy Policy Modal -->
+    <div id="privacyPolicyModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Privacy Policy</h2>
+            <p>Your privacy is important to us. This Privacy Policy explains how ScriptPort collects, uses, and discloses information about you.</p>
+            <p><strong>1. Information We Collect:</strong> We collect minimal personal information. When you first visit, we ask for your name to personalize your experience. This name is stored locally in your browser and is not transmitted to our servers or shared with third parties.</p>
+            <p><strong>2. Usage Data:</strong> We may collect information about how the Service is accessed and used ("Usage Data"). This Usage Data may include information such as your computer's Internet Protocol address (e.g. IP address), browser type, browser version, the pages of our Service that you visit, the time and date of your visit, the time spent on those pages, unique device identifiers and other diagnostic data.</p>
+            <p><strong>3. Reporting Issues:</strong> When you use the "Report Issue" feature, the game title, your issue description, and a timestamp are sent to a Google Sheet via a Google Apps Script. This information is used solely for the purpose of addressing reported issues and improving the service. It is not shared publicly or used for marketing.</p>
+            <p><strong>4. Cookies:</strong> We do not use cookies for tracking or advertising purposes. Any local storage used (e.g., for your name) is solely for enhancing your direct user experience on the site.</p>
+            <p><strong>5. Third-Party Links:</strong> Our Service may contain links to other sites that are not operated by us. If you click on a third-party link, you will be directed to that third party's site. We strongly advise you to review the Privacy Policy of every site you visit. We have no control over and assume no responsibility for the content, privacy policies or practices of any third-party sites or services.</p>
+            <p><strong>6. Security of Data:</strong> The security of your data is important to us, but remember that no method of transmission over the Internet, or method of electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your Personal Data, we cannot guarantee its absolute security.</p>
+            <p><strong>7. Changes to This Privacy Policy:</strong> We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p>
+            <button id="closePrivacyPolicyModalBtn">Close</button>
+        </div>
+    </div>
+
+    <!-- Links Modal -->
+    <div id="linksModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Other Sites & Resources</h2>
+            <div id="linksContent">
+                <!-- Links will be dynamically loaded here -->
+            </div>
+            <button id="closeLinksModalBtn">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES & DOM ELEMENTS ---
+        const nameModal = document.getElementById('nameModal');
+        const schoolNameInput = document.getElementById('schoolNameInput'); // Changed to schoolNameInput
+        const submitNameBtn = document.getElementById('submitNameBtn');
+        const appContainer = document.getElementById('app');
+        const homePage = document.getElementById('homePage');
+        const gamesPage = document.getElementById('gamesPage');
+        const animatedTitle = document.getElementById('animatedTitle');
+        const startButton = document.getElementById('startButton');
+        const currentYearSpan = document.getElementById('currentYear');
+        const gamesPageCurrentYearSpan = document.getElementById('gamesPageCurrentYear');
+        const serviceStatusBadge = document.getElementById('serviceStatus');
+        const gamesPageServiceStatusBadge = document.getElementById('gamesPageServiceStatus');
+        const gamesGrid = document.getElementById('gamesGrid');
+        const loadingMoreGames = document.getElementById('loadingMoreGames');
+        const gameModal = document.getElementById('gameModal');
+        const gameModalTitle = document.getElementById('gameModalTitle');
+        const gameModalCredits = document.getElementById('gameModalCredits');
+        const gameIframe = document.getElementById('gameIframe');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const newTabBtn = document.getElementById('newTabBtn');
+        const lockMouseBtn = document.getElementById('lockMouseBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const closeGameBtn = document.getElementById('closeGameBtn');
+        const reportBtn = document.getElementById('reportBtn'); // New Report button
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const statsEl = document.getElementById('statsEl');
+        // Removed adLeftIframe and adRightIframe as ads are removed
+        const gameTotalDisplay = document.getElementById('gameTotalDisplay'); // New element for game total
+
+        // New Report Modal Elements
+        const reportModal = document.getElementById('reportModal');
+        const reportGameTitleSpan = document.getElementById('reportGameTitle');
+        const issueDescriptionTextarea = document.getElementById('issueDescription');
+        const submitReportBtn = document.getElementById('submitReportBtn');
+        const cancelReportBtn = document.getElementById('cancelReportBtn');
+
+        // New Footer Link Elements
+        const termsLinkHome = document.getElementById('termsLinkHome');
+        const privacyPolicyLinkHome = document.getElementById('privacyPolicyLinkHome');
+        const otherSitesLinkHome = document.getElementById('otherSitesLinkHome');
+        const termsLinkGames = document.getElementById('termsLinkGames');
+        const privacyPolicyLinkGames = document.getElementById('privacyPolicyLinkGames');
+        const otherSitesLinkGames = document.getElementById('otherSitesLinkGames');
+
+        // New Modals and their Close Buttons
+        const termsModal = document.getElementById('termsModal');
+        const closeTermsModalBtn = document.getElementById('closeTermsModalBtn');
+        const privacyPolicyModal = document.getElementById('privacyPolicyModal');
+        const closePrivacyPolicyModalBtn = document.getElementById('closePrivacyPolicyModalBtn');
+        const linksModal = document.getElementById('linksModal');
+        const closeLinksModalBtn = document.getElementById('closeLinksModalBtn');
+        const linksContent = document.getElementById('linksContent');
+
+
+        let schoolName = ''; // Changed from userName to schoolName
+        let currentPage = 'home'; // Tracks current active page
+        let statsRunning = false; // New variable for stats
+        let animationFrameId; // To store the requestAnimationFrame ID for FPS counter
+        let currentGameStartTime = null; // To track game play duration
+        
+        // Generate or retrieve a unique user ID for analytics
+        let userId = sessionStorage.getItem('userId');
+        if (!userId) {
+            userId = crypto.randomUUID(); // Generate a unique ID
+            sessionStorage.setItem('userId', userId); // Store it for the session
+        }
+
+        // --- Built-in Bad Words Data (JSON) ---
+        const badWordsData = {
+            "words": [
+                "fuck", "shit", "bitch", "asshole", "cunt", "damn", "hell", "piss", "dick", "cock",
+                "whore", "slut", "bastard", "motherfucker", "faggot", "nigger", "retard", "idiot",
+                "douchebag", "crap", "bollocks", "bloody", "wanker", "tosser", "arse", "bugger",
+                "chink", "gook", "kike", "spic", "towelhead", "wetback", "beaner", "honky",
+                "cracker", "redneck", "hillbilly", "trailer trash", "white trash", "coon",
+                "dyke", "tranny", "queer", "homo", "lesbo", "pedo", "rapist", "child molester",
+                "pervert", "scumbag", "degenerate", "filth", "pig", "prick", "schmuck", "turd",
+                "twat", "gobshite", "git", "slag", "minger", "shag", "bollocks", "bloody hell",
+                "son of a bitch", "son of a whore", "son of a gun", "goddamn", "jesus christ",
+                "holy shit", "for christ's sake", "what the hell", "go to hell", "screw you",
+                "blow me", "suck my dick", "eat shit", "go fuck yourself", "up yours", "jerk off",
+                "cum", "jizz", "porn", "sex", "rape", "incest", "bestiality", "threesome",
+                "gangbang", "orgasm", "masturbate", "blowjob", "handjob", "rimjob", "anal",
+                "vagina", "penis", "clit", "tits", "boobs", "ass", "butt", "dickhead", "shithead",
+                "dumbass", "jackass", "dipshit", "fuckwit", "shitbag", "douche", "twat", "cunt",
+                "asswipe", "butt-fuck", "cock-sucker", "mother-fucker", "fag", "dyke", "gash",
+                "gobbler", "jerk", "knob", "minge", "muff", "numbnuts", "pussy", "scrotum",
+                "spunk", "tard", "tit", "wank", "whore"
+            ]
+        };
+
+
+        // IMPORTANT: REPLACE THIS URL WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+        // Instructions for deployment are provided after the code block.
+        const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx7uPJgJarkSCUMzwDBsMgX9_4Uv2jPe_q_HccQ6mkr3Z0KNwvduxx2pyim2Dmo7QpQSg/exec'; 
+
+        // Define transition speed in milliseconds for JavaScript use
+        const transitionSpeedMs = 400; // Corresponds to --transition-speed: 0.4s in CSS
+
+        // --- GAME DATA (Internal JSON Object - Hardcoded) ---
+        // 'repoUrl' now points to the full GitHub *folder* URL where the game's index.html resides.
+        // Example: https://github.com/ArmanYep/Unblocked-Games/tree/main/games/2048
+        const allGamesData = [
+  {id: '1on1soccer',title: '1 on 1 Soccer',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=1+on+1+Soccer',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/1on1soccer'},
+  {id: '1v1lol',title: '1v1.lol',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=1v1.lol',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/1v1lol'},
+  {id: '2048',title: '2048',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=2048',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/2048'},
+  {id: '2drocketleague',title: '2D Rocket League',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=2D+Rocket+League',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/2drocketleague'},
+  {id: '60sburgerrun',title: '60s Burger Run',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=60s+Burger+Run',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/60sburgerrun'},
+  {id: 'achieveunlocked',title: 'Achieve Unlocked',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Achieve+Unlocked',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/achieveunlocked'},
+  {id: 'achieveunlocked2',title: 'Achieve Unlocked 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Achieve+Unlocked+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/achieveunlocked2'},
+  {id: 'adarkroom',title: 'A Dark Room',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=A+Dark+Room',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/adarkroom'},
+  {id: 'adofai',title: 'A Dance of Fire and Ice',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=A+Dance+of+Fire+and+Ice',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/adofai'},
+  {id: 'adventure-capitalist',title: 'Adventure Capitalist',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Adventure+Capitalist',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/adventure-capitalist'},
+  {id: 'ageofwar',title: 'Age of War',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Age+of+War',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ageofwar'},
+  {id: 'amazing-rope-police',title: 'Amazing Rope Police',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Amazing+Rope+Police',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/amazing-rope-police'},
+  {id: 'amongus',title: 'Among Us',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Among+Us',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/amongus'},
+  {id: 'avalanche',title: 'Avalanche',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Avalanche',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/avalanche'},
+  {id: 'awesometanks',title: 'Awesome Tanks',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Awesome+Tanks',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/awesometanks'},
+  {id: 'badicecream',title: 'Bad Ice-Cream',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bad+Ice-Cream',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/badicecream'},
+  {id: 'badicecream2',title: 'Bad Ice-Cream 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bad+Ice-Cream+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/badicecream2'},
+  {id: 'badicecream3',title: 'Bad Ice-Cream 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bad+Ice-Cream+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/badicecream3'},
+  {id: 'badpiggies',title: 'Bad Piggies',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bad+Piggies',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/badpiggies'},
+  {id: 'badtimesimulator',title: 'Bad Time Simulator',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bad+Time+Simulator',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/badtimesimulator'},
+  {id: 'baldis-basics',title: 'Baldi\'s Basics',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Baldi%27s+Basics',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/baldis-basics'},
+  {id: 'ballisticchickens',title: 'Ballistic Chickens',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Ballistic+Chickens',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ballisticchickens'},
+  {id: 'basketball-stars',title: 'Basketball Stars',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Basketball+Stars',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/basketball-stars'},
+  {id: 'basketbros',title: 'Basket Bros',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Basket+Bros',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/basketbros'},
+  {id: 'basketrandom',title: 'Basket Random',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Basket+Random',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/basketrandom'},
+  {id: 'bit-planes',title: 'Bit Planes',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bit+Planes',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/bit-planes'},
+  {id: 'bitlife',title: 'Bitlife',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bitlife',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/bitlife'},
+  {id: 'bloodtournament',title: 'Blood Tournament',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Blood+Tournament',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/bloodtournament'},
+  {id: 'bobtherobber2',title: 'Bob The Robber 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bob+The+Robber+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/bobtherobber2'},
+  {id: 'boxingphysics2',title: 'Boxing Physics 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Boxing+Physics+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/boxingphysics2'},
+  {id: 'boxingrandom',title: 'Boxing Random',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Boxing+Random',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/boxingrandom'},
+  {id: 'breakingthebank',title: 'Breaking The Bank',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Breaking+The+Bank',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/breakingthebank'},
+  {id: 'btd',title: 'Bloons Tower Defense',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd'},
+  {id: 'btd2',title: 'Bloons Tower Defense 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd2'},
+  {id: 'btd3',title: 'Bloons Tower Defense 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd3'},
+  {id: 'btd4',title: 'Bloons Tower Defense 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd4'},
+  {id: 'btd5',title: 'Bloons Tower Defense 5',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense+5',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd5'},
+  {id: 'btd6',title: 'Bloons Tower Defense 6',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bloons+Tower+Defense+6',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/btd6'},
+  {id: 'bubbleshooter',title: 'Bubble Shooter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Bubble+Shooter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/bubbleshooter'},
+  {id: 'burgerandfrights',title: 'Burger and Frights',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Burger+and+Frights',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/burgerandfrights'},
+  {id: 'burritobison',title: 'Burrito Bison',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Burrito+Bison',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/burritobison'},
+  {id: 'celeste',title: 'Celeste',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Celeste',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/celeste'},
+  {id: 'cell-machine',title: 'Cell Machine',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cell+Machine',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cell-machine'},
+  {id: 'championisland',title: 'Champion Island',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Champion+Island',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/championisland'},
+  {id: 'chess',title: 'Chess',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Chess',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/chess'},
+  {id: 'chibiknighthttps',title: 'Chibi Knight',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Chibi+Knight',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/chibiknighthttps'},
+  {id: 'circloo',title: 'Circloo',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Circloo',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/circloo'},
+  {id: 'clickerheroes',title: 'Clicker Heroes',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Clicker+Heroes',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/clickerheroes'},
+  {id: 'cluster-rush',title: 'Cluster Rush',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cluster+Rush',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cluster-rush'},
+  {id: 'colorswitch',title: 'Color Switch',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Color+Switch',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/colorswitch'},
+  {id: 'commodoreclicker',title: 'Commodore Clicker',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Commodore+Clicker',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/commodoreclicker'},
+  {id: 'cookieclicker',title: 'Cookie Clicker',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cookie+Clicker',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cookieclicker'},
+  {id: 'crossyroad',title: 'Crossy Road',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Crossy+Road',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/crossyroad'},
+  {id: 'csgoclicker',title: 'CSGO Clicker',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=CSGO+Clicker',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/csgoclicker'},
+  {id: 'cubefield',title: 'Cubefield',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cubefield',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cubefield'},
+  {id: 'cuttherope-holiday',title: 'Cut The Rope: Holiday',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cut+The+Rope:+Holiday',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cuttherope-holiday'},
+  {id: 'cuttherope',title: 'Cut The Rope',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Cut+The+Rope',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/cuttherope'},
+  {id: 'dadish',title: 'Dadish',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dadish',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dadish'},
+  {id: 'dadish2',title: 'Dadish 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dadish+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dadish2'},
+  {id: 'dadish3',title: 'Dadish 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dadish+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dadish3'},
+  {id: 'dante',title: 'Dante',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dante',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dante'},
+  {id: 'death-run-3d',title: 'Death Run 3D',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Death+Run+3D',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/death-run-3d'},
+  {id: 'dino',title: 'Dino Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dino+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dino'},
+  {id: 'dogeminer',title: 'Doge Miner',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Doge+Miner',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dogeminer'},
+  {id: 'doodlejump',title: 'Doodle Jump',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Doodle+Jump',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/doodlejump'},
+  {id: 'doom',title: 'Doom',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Doom',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/doom'},
+  {id: 'dragonballdevolution',title: 'Dragon Ball Devolution',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Dragon+Ball+Devolution',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/dragonballdevolution'},
+  {id: 'drift-boss',title: 'Drift Boss',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Drift+Boss',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/drift-boss'},
+  {id: 'drifthunters',title: 'Drift Hunters',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Drift+Hunters',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/drifthunters'},
+  {id: 'drivemad',title: 'Drive Mad',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Drive+Mad',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/drivemad'},
+  {id: 'ducklife1',title: 'Duck Life',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife1'},
+  {id: 'ducklife2',title: 'Duck Life 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife2'},
+  {id: 'ducklife3',title: 'Duck Life 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife3'},
+  {id: 'ducklife4',title: 'Duck Life 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife4'},
+  {id: 'ducklife5',title: 'Duck Life 5',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life+5',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife5'},
+  {id: 'ducklife6',title: 'Duck Life 6',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Duck+Life+6',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ducklife6'},
+  {id: 'escapingtheprison',title: 'Escaping The Prison',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Escaping+The+Prison',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/escapingtheprison'},
+  {id: 'factoryballs',title: 'Factory Balls',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Factory+Balls',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/factoryballs'},
+  {id: 'factoryballsforever',title: 'Factory Balls Forever',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Factory+Balls+Forever',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/factoryballsforever'},
+  {id: 'fancypantsadventures',title: 'Fancy Pants Adventures',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fancy+Pants+Adventures',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fancypantsadventures'},
+  {id: 'fancypantsadventures2',title: 'Fancy Pants Adventures 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fancy+Pants+Adventures+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fancypantsadventures2'},
+  {id: 'fireboywatergirl',title: 'Fireboy and Watergirl',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fireboy+and+Watergirl',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fireboywatergirl'},
+  {id: 'fireboywatergirl2',title: 'Fireboy and Watergirl 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fireboy+and+Watergirl+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fireboywatergirl2'},
+  {id: 'fireboywatergirl3',title: 'Fireboy and Watergirl 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fireboy+and+Watergirl+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fireboywatergirl3'},
+  {id: 'fireboywatergirl4',title: 'Fireboy and Watergirl 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fireboy+and+Watergirl+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fireboywatergirl4'},
+  {id: 'flappybird',title: 'Flappy Bird',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Flappy+Bird',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/flappybird'},
+  {id: 'flappyplane',title: 'Flappy Plane',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Flappy+Plane',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/flappyplane'},
+  {id: 'fleeingthecomplex',title: 'Fleeing The Complex',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fleeing+The+Complex',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fleeingthecomplex'},
+  {id: 'flippyfish',title: 'Flippy Fish',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Flippy+Fish',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/flippyfish'},
+  {id: 'fluidsim',title: 'Fluid Simulation',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fluid+Simulation',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fluidsim'},
+  {id: 'fnaf',title: 'Five Nights at Freddy\'s',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Five+Nights+at+Freddy%27s',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fnaf'},
+  {id: 'fnaf2',title: 'Five Nights at Freddy\'s 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Five+Nights+at+Freddy%27s+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fnaf2'},
+  {id: 'fnaf3',title: 'Five Nights at Freddy\'s 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Five+Nights+at+Freddy%27s+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fnaf3'},
+  {id: 'fnaf4',title: 'Five Nights at Freddy\'s 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Five+Nights+at+Freddy%27s+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fnaf4'},
+  {id: 'fridaynightfunkin',title: 'Friday Night Funkin',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Friday+Night+Funkin',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fridaynightfunkin'},
+  {id: 'fruitninja',title: 'Fruit Ninja',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Fruit+Ninja',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/fruitninja'},
+  {id: 'funnyballgame',title: 'Funny Ball Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Funny+Ball+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/funnyballgame'},
+  {id: 'funnymadracing',title: 'Funny Mad Racing',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Funny+Mad+Racing',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/funnymadracing'},
+  {id: 'funnyshooter',title: 'Funny Shooter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Funny+Shooter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/funnyshooter'},
+  {id: 'funnyshooter2',title: 'Funny Shooter 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Funny+Shooter+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/funnyshooter2'},
+  {id: 'gamemaker',title: 'Game Maker',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Game+Maker',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gamemaker'},
+  {id: 'gba',title: 'GBA Emulator',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=GBA+Emulator',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gba'},
+  {id: 'gdlite',title: 'GD Lite',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=GD+Lite',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gdlite'},
+  {id: 'geometrydash',title: 'Geometry Dash',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Geometry+Dash',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/geometrydash'},
+  {id: 'geometryrash',title: 'Geometry Rash',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Geometry+Rash',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/geometryrash'},
+  {id: 'getawayshooter',title: 'Getaway Shooter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Getaway+Shooter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/getawayshooter'},
+  {id: 'golddiggerfrvr',title: 'Gold Digger FRVR',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Gold+Digger+FRVR',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/golddiggerfrvr'},
+  {id: 'guiltygear',title: 'Guilty Gear',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Guilty+Gear',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/guiltygear'},
+  {id: 'gunmayhem',title: 'Gun Mayhem',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Gun+Mayhem',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gunmayhem'},
+  {id: 'gunmayhem2',title: 'Gun Mayhem 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Gun+Mayhem+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gunmayhem2'},
+  {id: 'gunmayhemredux',title: 'Gun Mayhem Redux',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Gun+Mayhem+Redux',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/gunmayhemredux'},
+  {id: 'halloween2016',title: 'Halloween 2016',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Halloween+2016',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/halloween2016'},
+  {id: 'happywheels',title: 'Happy Wheels',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Happy+Wheels',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/happywheels'},
+  {id: 'helixjump',title: 'Helix Jump',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Helix+Jump',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/helixjump'},
+  {id: 'hexgl',title: 'HexGL',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=HexGL',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/hexgl'},
+  {id: 'hextris',title: 'Hextris',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Hextris',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/hextris'},
+  {id: 'hillclimbracing2',title: 'Hill Climb Racing 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Hill+Climb+Racing+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/hillclimbracing2'},
+  {id: 'holeio',title: 'Hole.io',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Hole.io',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/holeio'},
+  {id: 'idlebreakout',title: 'Idle Breakout',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Idle+Breakout',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/idlebreakout'},
+  {id: 'infiltratingtheairship',title: 'Infiltrating The Airship',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Infiltrating+The+Airship',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/infiltratingtheairship'},
+  {id: 'iwbtchttps',title: 'I Wanna Be The Guy',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=I+Wanna+Be+The+Guy',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/iwbtchttps'},
+  {id: 'jetpackjoyride',title: 'Jetpack Joyride',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Jetpack+Joyride',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/jetpackjoyride'},
+  {id: 'justfalllol',title: 'JustFall.LOL',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=JustFall.LOL',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/justfalllol'},
+  {id: 'knifehithttps',title: 'Knife Hit',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Knife+Hit',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/knifehithttps'},
+  {id: 'lasthorizon',title: 'Last Horizon',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Last+Horizon',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/lasthorizon'},
+  {id: 'lazyjump3d',title: 'Lazy Jump 3D',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Lazy+Jump+3D',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/lazyjump3d'},
+  {id: 'learntofly',title: 'Learn to Fly',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Learn+to+Fly',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/learntofly'},
+  {id: 'learntofly2',title: 'Learn to Fly 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Learn+to+Fly+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/learntofly2'},
+  {id: 'learntoflyidle',title: 'Learn to Fly Idle',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Learn+to+Fly+Idle',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/learntoflyidle'},
+  {id: 'linerider',title: 'Line Rider',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Line+Rider',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/linerider'},
+  {id: 'littlealchemy',title: 'Little Alchemy',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Little+Alchemy',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/littlealchemy'},
+  {id: 'lowsadventures2',title: 'Low\'s Adventures 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Low%27s+Adventures+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/lowsadventures2'},
+  {id: 'madalincars',title: 'Madalin Cars',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Madalin+Cars',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/madalincars'},
+  {id: 'mario',title: 'Super Mario Bros.',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Super+Mario+Bros.',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/mario'},
+  {id: 'mcclassic',title: 'Minecraft Classic',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Minecraft+Classic',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/mcclassic'},
+  {id: 'metroidzeromission',title: 'Metroid Zero Mission',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Metroid+Zero+Mission',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/metroidzeromission'},
+  {id: 'minecraft-tower-defence-2',title: 'Minecraft Tower Defense 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Minecraft+Tower+Defense+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/minecraft-tower-defence-2'},
+  {id: 'minesweeper',title: 'Minesweeper',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Minesweeper',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/minesweeper'},
+  {id: 'monkeymarthttps',title: 'Monkey Mart',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Monkey+Mart',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/monkeymarthttps'},
+  {id: 'monstertracks',title: 'Monster Tracks',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Monster+Tracks',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/monstertracks'},
+  {id: 'motox3m-pool',title: 'Moto X3M Pool Party',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Moto+X3M+Pool+Party',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/motox3m-pool'},
+  {id: 'motox3m-spooky',title: 'Moto X3M Spooky Land',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Moto+X3M+Spooky+Land',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/motox3m-spooky'},
+  {id: 'motox3m-winter',title: 'Moto X3M Winter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Moto+X3M+Winter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/motox3m-winter'},
+  {id: 'motox3m',title: 'Moto X3M',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Moto+X3M',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/motox3m'},
+  {id: 'ngon',title: 'NGon',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=NGon',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ngon'},
+  {id: 'nutsim',title: 'Nuts In Space',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Nuts+In+Space',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/nutsim'},
+  {id: 'ocarinaoftime',title: 'Ocarina of Time',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Ocarina+of+Time',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ocarinaoftime'},
+  {id: 'offline-mchttps',title: 'Offline MC',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Offline+MC',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/offline-mchttps'},
+  {id: 'offlineparadise',title: 'Offline Paradise',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Offline+Paradise',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/offlineparadise'},
+  {id: 'online-mchttps',title: 'Online MC',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Online+MC',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/online-mchttps'},
+  {id: 'osu',title: 'Osu!',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Osu!',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/osu'},
+  {id: 'osumania',title: 'Osu! Mania',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Osu!+Mania',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/osumania'},
+  {id: 'ovo',title: 'OvO',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=OvO',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ovo'},
+  {id: 'pacman',title: 'Pac-Man',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pac-Man',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pacman'},
+  {id: 'pandemic',title: 'Pandemic',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pandemic',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pandemic'},
+  {id: 'pandemic2',title: 'Pandemic 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pandemic+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pandemic2'},
+  {id: 'papasburgeria',title: 'Papa\'s Burgeria',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Papa%27s+Burgeria',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/papasburgeria'},
+  {id: 'papasfreezeria',title: 'Papa\'s Freezeria',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Papa%27s+Freezeria',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/papasfreezeria'},
+  {id: 'papaspizzeria',title: 'Papa\'s Pizzeria',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Papa%27s+Pizzeria',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/papaspizzeria'},
+  {id: 'paperio',title: 'Paper.io',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Paper.io',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/paperio'},
+  {id: 'pizzatower',title: 'Pizza Tower',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pizza+Tower',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pizzatower'},
+  {id: 'pokemon',title: 'Pokemon',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pokemon',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pokemon'},
+  {id: 'pong',title: 'Pong',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Pong',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/pong'},
+  {id: 'redball3',title: 'Red Ball 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Red+Ball+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/redball3'},
+  {id: 'redball4',title: 'Red Ball 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Red+Ball+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/redball4'},
+  {id: 'redball4vol2',title: 'Red Ball 4 Vol 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Red+Ball+4+Vol+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/redball4vol2'},
+  {id: 'redball4vol3',title: 'Red Ball 4 Vol 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Red+Ball+4+Vol+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/redball4vol3'},
+  {id: 'retrobowl',title: 'Retro Bowl',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Retro+Bowl',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/retrobowl'},
+  {id: 'retrobowlcollege',title: 'Retro Bowl College',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Retro+Bowl+College',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/retrobowlcollege'},
+  {id: 'riddleschool',title: 'Riddle School',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschool'},
+  {id: 'riddleschool2',title: 'Riddle School 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschool2'},
+  {id: 'riddleschool3',title: 'Riddle School 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschool3'},
+  {id: 'riddleschool4',title: 'Riddle School 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschool4'},
+  {id: 'riddleschool5',title: 'Riddle School 5',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+5',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschool5'},
+  {id: 'riddleschooltransfer',title: 'Riddle School Transfer',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+Transfer',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschooltransfer'},
+  {id: 'riddleschooltransfer2',title: 'Riddle School Transfer 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Riddle+School+Transfer+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/riddleschooltransfer2'},
+  {id: 'risehigher',title: 'Rise Higher',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Rise+Higher',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/risehigher'},
+  {id: 'rocketleague',title: 'Rocket League',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Rocket+League',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/rocketleague'},
+  {id: 'rooftopsnipers',title: 'Rooftop Snipers',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Rooftop+Snipers',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/rooftopsnipers'},
+  {id: 'rooftopsnipers2',title: 'Rooftop Snipers 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Rooftop+Snipers+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/rooftopsnipers2'},
+  {id: 'ruffle',title: 'Ruffle',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Ruffle',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/ruffle'},
+  {id: 'run',title: 'Run',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Run',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/run'},
+  {id: 'run2',title: 'Run 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Run+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/run2'},
+  {id: 'run3',title: 'Run 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Run+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/run3'},
+  {id: 'russiancardriver',title: 'Russian Car Driver',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Russian+Car+Driver',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/russiancardriver'},
+  {id: 'sand',title: 'Sand',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Sand',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/sand'},
+  {id: 'sandtrix',title: 'Sandtrix',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Sandtrix',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/sandtrix'},
+  {id: 'skibiditoilethttps',title: 'Skibidi Toilet',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Skibidi+Toilet',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/skibiditoilethttps'},
+  {id: 'skibiditoiletattack',title: 'Skibidi Toilet Attack',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Skibidi+Toilet+Attack',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/skibiditoiletattack'},
+  {id: 'slope-ball',title: 'Slope Ball',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Slope+Ball',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/slope-ball'},
+  {id: 'slope',title: 'Slope',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Slope',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/slope'},
+  {id: 'slope2',title: 'Slope 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Slope+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/slope2'},
+  {id: 'snake',title: 'Snake',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Snake',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/snake'},
+  {id: 'snowrider3d',title: 'Snow Rider 3D',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Snow+Rider+3D',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/snowrider3d'},
+  {id: 'soccerrandom',title: 'Soccer Random',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Soccer+Random',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/soccerrandom'},
+  {id: 'solitaire',title: 'Solitaire',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Solitaire',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/solitaire'},
+  {id: 'soundboard',title: 'Soundboard',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Soundboard',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/soundboard'},
+  {id: 'spankthemonkey',title: 'Spank The Monkey',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Spank+The+Monkey',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/spankthemonkey'},
+  {id: 'sprinter',title: 'Sprinter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Sprinter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/sprinter'},
+  {id: 'stack',title: 'Stack',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stack',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stack'},
+  {id: 'stealingthediamond',title: 'Stealing The Diamond',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stealing+The+Diamond',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stealingthediamond'},
+  {id: 'stickman-hook',title: 'Stickman Hook',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stickman+Hook',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stickman-hook'},
+  {id: 'stickmanboost',title: 'Stickman Boost',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stickman+Boost',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stickmanboost'},
+  {id: 'stickmanclimb',title: 'Stickman Climb',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stickman+Climb',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stickmanclimb'},
+  {id: 'stickmangolf',title: 'Stickman Golf',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Stickman+Golf',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/stickmangolf'},
+  {id: 'subway-surfers-ny',title: 'Subway Surfers New York',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Subway+Surfers+New+York',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/subway-surfers-ny'},
+  {id: 'superhot',title: 'Superhot',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Superhot',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/superhot'},
+  {id: 'supermario64',title: 'Super Mario 64',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Super+Mario+64',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/supermario64'},
+  {id: 'supermeatboy',title: 'Super Meat Boy',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Super+Meat+Boy',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/supermeatboy'},
+  {id: 'supersmashbros',title: 'Super Smash Bros.',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Super+Smash+Bros.',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/supersmashbros'},
+  {id: 'supersmashflash',title: 'Super Smash Flash',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Super+Smash+Flash',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/supersmashflash'},
+  {id: 'tabs',title: 'TABS',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=TABS',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tabs'},
+  {id: 'templerun2',title: 'Temple Run 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Temple+Run+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/templerun2'},
+  {id: 'tetris',title: 'Tetris',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tetris',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tetris'},
+  {id: 'thefinalearth2',title: 'The Final Earth 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=The+Final+Earth+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/thefinalearth2'},
+  {id: 'theimpossiblegame',title: 'The Impossible Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=The+Impossible+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/theimpossiblegame'},
+  {id: 'theimpossiblequiz',title: 'The Impossible Quiz',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=The+Impossible+Quiz',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/theimpossiblequiz'},
+  {id: 'thereisnogame',title: 'There Is No Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=There+Is+No+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/thereisnogame'},
+  {id: 'thirtydollarwebsite',title: 'Thirty Dollar Website',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Thirty+Dollar+Website',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/thirtydollarwebsite'},
+  {id: 'thisistheonlylevel',title: 'This is the Only Level',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=This+is+the+Only+Level',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/thisistheonlylevel'},
+  {id: 'thisistheonlylevel2',title: 'This is the Only Level 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=This+is+the+Only+Level+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/thisistheonlylevel2'},
+  {id: 'timeshooter1',title: 'Time Shooter',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Time+Shooter',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/timeshooter1'},
+  {id: 'timeshooter2',title: 'Time Shooter 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Time+Shooter+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/timeshooter2'},
+  {id: 'timeshooter3',title: 'Time Shooter 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Time+Shooter+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/timeshooter3'},
+  {id: 'tinyfishing',title: 'Tiny Fishing',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tiny+Fishing',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tinyfishing'},
+  {id: 'townscaper',title: 'Townscaper',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Townscaper',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/townscaper'},
+  {id: 'tron',title: 'Tron',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tron',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tron'},
+  {id: 'tu46',title: 'TU-46',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=TU-46',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tu46'},
+  {id: 'tu95',title: 'TU-95',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=TU-95',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tu95'},
+  {id: 'tube-jumpers',title: 'Tube Jumpers',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tube+Jumpers',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tube-jumpers'},
+  {id: 'tunnelrush',title: 'Tunnel Rush',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Tunnel+Rush',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/tunnelrush'},
+  {id: 'turbowarp',title: 'Turbowarp',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Turbowarp',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/turbowarp'},
+  {id: 'universal-paperclips',title: 'Universal Paperclips',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Universal+Paperclips',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/universal-paperclips'},
+  {id: 'vex',title: 'Vex',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex'},
+  {id: 'vex2',title: 'Vex 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex2'},
+  {id: 'vex3',title: 'Vex 3',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+3',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex3'},
+  {id: 'vex4',title: 'Vex 4',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+4',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex4'},
+  {id: 'vex5',title: 'Vex 5',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+5',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex5'},
+  {id: 'vex6',title: 'Vex 6',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+6',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex6'},
+  {id: 'vex7',title: 'Vex 7',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Vex+7',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/vex7'},
+  {id: 'wallsmash',title: 'Wall Smash',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Wall+Smash',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/wallsmash'},
+  {id: 'watermelongame',title: 'Watermelon Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Watermelon+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/watermelongame'},
+  {id: 'wbwwb',title: 'When Bubbles Want to Burst',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=When+Bubbles+Want+to+Burst',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/wbwwb'},
+  {id: 'weavesilk',title: 'Weave Silk',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Weave+Silk',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/weavesilk'},
+  {id: 'webretro',title: 'Web Retro',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Web+Retro',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/webretro'},
+  {id: 'wordle',title: 'Wordle',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Wordle',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/wordle'},
+  {id: 'wordlebot',title: 'Wordle Bot',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Wordle+Bot',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/wordlebot'},
+  {id: 'worldhardestgame2',title: 'World\'s Hardest Game 2',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=World%27s+Hardest+Game+2',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/worldhardestgame2'},
+  {id: 'worldshardestgame',title: 'World\'s Hardest Game',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=World%27s+Hardest+Game',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/worldshardestgame'},
+  {id: 'zombocalypse',title: 'Zombocalypse',imageUrl: 'https://placehold.co/400x300/3a3a3a/e0e0e0?text=Zombocalypse',repoUrl: 'https://github.com/selenite-cc/selenite-old/tree/main/zombocalypse'}
+];
+        let gamesRendered = 0;
+        const gamesPerPage = 12; // Number of games to load at once (increased for better initial view)
+
+        // --- AD DATA (Embedded JSON Configuration) ---
+        // Removed as ads are no longer used.
+        const allAdsData = []; 
+
+        // --- OTHER LINKS DATA (JSON for "Other Sites" modal) ---
+        const allLinksData = {
+            "Main Section (Link Sheets) constant updates": [
+                { name: "ScriptPort Main Site", url: "https://scriptport.example.com" },
+                { name: "ScriptPort Blog", url: "https://blog.scriptport.example.com" },
+                { name: "Community Forum", url: "https://forum.scriptport.example.com" }
+            ],
+            "Google Sites": [
+                { name: "Google Drive", url: "https://drive.google.com" },
+                { name: "Google Docs", url: "https://docs.google.com" },
+                { name: "Google Sheets", url: "https://sheets.google.com" }
+            ],
+            "Google Sheets Down / Blocked": [
+                { name: "Google Sheets Status Page", url: "https://www.google.com/appsstatus#hl=en&v=status" },
+                { name: "Alternative Sheet Service 1", url: "https://alternativesheet1.example.com" },
+                { name: "Alternative Sheet Service 2", url: "https://alternativesheet2.example.com" }
+            ]
+        };
+
+        // --- UTILITY FUNCTIONS ---
+
+        // Function to display a personalized greeting
+        function showGreeting(name) {
+            const greetingElement = document.createElement('p');
+            greetingElement.textContent = `Welcome From ${name}!`; // Updated message
+            greetingElement.style.cssText = `
+                position: fixed;
+                top: 25px;
+                right: 25px;
+                background-color: var(--accent-color);
+                color: white;
+                padding: 12px 18px;
+                border-radius: 8px;
+                z-index: 1001;
+                opacity: 0;
+                transform: translateX(100%);
+                animation: slideInGreeting 0.6s forwards cubic-bezier(0.25, 0.46, 0.45, 0.94), fadeOutGreeting 0.8s 3s forwards;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+                font-size: 1rem;
+            `;
+            document.body.appendChild(greetingElement);
+
+            setTimeout(() => greetingElement.remove(), 4000); // Remove after total animation time
+        }
+
+        // Function to handle page transitions
+        function navigateTo(pageId) {
+            const allPages = document.querySelectorAll('.page-view');
+            const targetPage = document.getElementById(pageId);
+
+            // Fade out current active page
+            const currentActivePage = document.querySelector('.page-view.active');
+            if (currentActivePage) {
+                currentActivePage.classList.remove('active');
+                currentActivePage.style.transform = 'translateY(20px)'; // Slide down slightly
+                currentActivePage.style.opacity = '0';
+                setTimeout(() => {
+                    currentActivePage.style.display = 'none'; // Hide physically after transition
+                }, transitionSpeedMs); // Use JS variable here
+            }
+
+
+            if (targetPage) {
+                targetPage.style.display = 'flex'; // Show physically before animating
+                setTimeout(() => {
+                    targetPage.classList.add('active');
+                    targetPage.style.transform = 'translateY(0)'; // Slide up to position
+                    targetPage.style.opacity = '1';
+                }, 10); // Small delay for display property to take effect before transition
+                currentPage = pageId;
+                sendAnalyticsData('page_view', { page: pageId }); // Analytics: Page View
+            }
+        }
+
+        // Function for typing effect
+        function typeWriter(element, text, speed) {
+            let i = 0;
+            element.textContent = ''; // Clear existing text
+            element.classList.add('typing-effect'); // Add class to enable typing animation
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                } else {
+                    element.classList.remove('typing-effect'); // Remove cursor after typing
+                    element.style.borderRight = 'none'; // Ensure cursor is gone
+                }
+            }
+            type();
+        }
+
+        // Function to fetch GitHub Gist status (placeholder due to CORS)
+        async function fetchServiceStatus() {
+            const gistId = 'YOUR_GIST_ID_HERE'; // Replace with your actual Gist ID
+            const fileName = 'status.json'; // The name of the file inside the Gist
+            const gistUrl = `https://api.github.com/gists/${gistId}`;
+
+            try {
+                // This fetch will likely fail due to CORS on a local file or certain origins.
+                // In a production environment hosted on a web server, this might work if GitHub's CORS policy allows it,
+                // or you'd need a server-side proxy.
+                const response = await fetch(gistUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const statusFile = data.files[fileName];
+
+                if (statusFile) {
+                    const statusContent = JSON.parse(statusFile.content);
+                    const status = statusContent.status; // Assuming status.json has a 'status' field
+
+                    if (status === 'online') {
+                        serviceStatusBadge.textContent = 'Service Status: Online';
+                        serviceStatusBadge.classList.add('online');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Online';
+                        gamesPageServiceStatusBadge.classList.add('online');
+                    } else if (status === 'offline') {
+                        serviceStatusBadge.textContent = 'Service Status: Offline';
+                        serviceStatusBadge.classList.add('offline');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Offline';
+                        gamesPageServiceStatusBadge.classList.add('offline');
+                    } else {
+                        serviceStatusBadge.textContent = 'Service Status: Unknown';
+                        serviceStatusBadge.classList.remove('online', 'offline');
+                        gamesPageServiceStatusBadge.textContent = 'Service Status: Unknown';
+                        gamesPageServiceStatusBadge.classList.remove('online', 'offline');
+                    }
+                } else {
+                    console.warn(`File '${fileName}' not found in Gist.`);
+                    serviceStatusBadge.textContent = 'Service Status: N/A';
+                    gamesPageServiceStatusBadge.textContent = 'Service Status: N/A';
+                }
+            } catch (error) {
+                console.error('Could not fetch service status:', error);
+                serviceStatusBadge.textContent = 'Service Status: Error';
+                serviceStatusBadge.classList.remove('online');
+                serviceStatusBadge.classList.add('offline'); // Indicate error as offline
+                gamesPageServiceStatusBadge.textContent = 'Service Status: Error';
+                gamesPageServiceStatusBadge.classList.remove('online');
+                gamesPageServiceStatusBadge.classList.add('offline');
+            }
+        }
+
+        // Function to render game cards
+        function renderGames() {
+            const fragment = document.createDocumentFragment();
+            // Render from allGamesData
+            const gamesToLoad = allGamesData.slice(gamesRendered, gamesRendered + gamesPerPage);
+
+            if (gamesToLoad.length === 0 && gamesRendered > 0) {
+                loadingMoreGames.style.display = 'none';
+                return; // All games loaded
+            }
+
+            gamesToLoad.forEach(game => {
+                const gameCard = document.createElement('div');
+                gameCard.classList.add('game-card');
+                gameCard.dataset.gameId = game.id; // Store game ID for click handler
+
+                // Extract username from GitHub repo URL
+                const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+
+                gameCard.innerHTML = `
+                    <img src="${game.imageUrl}" alt="${game.title} Thumbnail" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/400x300/3a3a3a/e0e0e0?text=No+Image';">
+                    <div class="game-overlay">
+                        <div class="game-title">${game.title}</div>
+                        <div class="game-credits">Credits: ${githubUsername}</div>
+                    </div>
+                `;
+                fragment.appendChild(gameCard);
+            });
+
+            gamesGrid.appendChild(fragment);
+            gamesRendered += gamesToLoad.length;
+
+            if (gamesRendered < allGamesData.length) { // Check against total fetched data
+                loadingMoreGames.style.display = 'block';
+            } else {
+                loadingMoreGames.style.display = 'none';
+            }
+            updateGameTotal(); // Update game total after rendering
+        }
+
+        // Function to update the dynamic game total
+        function updateGameTotal() {
+            gameTotalDisplay.textContent = `Total Games: ${allGamesData.length}`;
+        }
+
+        // Function to handle scroll for lazy loading
+        function handleScroll() {
+            if (currentPage === 'games' &&
+                (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 500) && // 500px from bottom
+                gamesRendered < allGamesData.length) { // Check against total fetched data
+                renderGames();
+            }
+        }
+
+        // Function to show a custom message box instead of alert()
+        function showMessageBox(message, type = 'info') { // Added type parameter
+            const messageBox = document.createElement('div');
+            messageBox.textContent = message;
+            messageBox.classList.add('message-box');
+
+            if (type === 'error') {
+                messageBox.classList.add('error');
+                // Add the SVG icon for error messages
+                const iconDiv = document.createElement('div');
+                iconDiv.classList.add('icon-circle-x');
+                iconDiv.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                `;
+                messageBox.prepend(iconDiv); // Add icon before the text
+            }
+
+            document.body.appendChild(messageBox);
+            setTimeout(() => messageBox.remove(), 3000); // Remove message after 3 seconds total
+        }
+
+        // --- GAME LOADING LOGIC (from user provided snippet) ---
+
+        // FPS counter function
+        function startStats() {
+            statsRunning = true;
+            let frameCount = 0;
+            let lastTime = performance.now();
+
+            function updateFPS() {
+                if (!statsRunning) {
+                    cancelAnimationFrame(animationFrameId); // Stop the loop if not running
+                    return;
+                }
+
+                const currentTime = performance.now();
+                frameCount++;
+
+                // Update FPS every second
+                if (currentTime - lastTime >= 1000) {
+                    const fps = Math.round(frameCount / ((currentTime - lastTime) / 1000));
+                    statsEl.textContent = `FPS: ${fps}`;
+                    frameCount = 0;
+                    lastTime = currentTime;
+                }
+                animationFrameId = requestAnimationFrame(updateFPS);
+            }
+            animationFrameId = requestAnimationFrame(updateFPS); // Start the loop
+        }
+
+        // Function to load game into iframe by fetching HTML and rewriting paths
+        async function loadGameIntoIframe(repoUrl) {
+            loadingIndicator.style.display = 'block';
+            gameIframe.style.display = 'none';
+            gameIframe.srcdoc = ''; // Clear previous content
+
+            // Regex to extract user, repo, branch, and optionally the folder path
+            // It handles both /tree/branch and /tree/branch/path/to/folder
+            const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)(?:\/(.*))?/);
+
+            if (!match) {
+                showMessageBox('Invalid GitHub repository URL format! Please ensure the URL points to a branch (e.g., /tree/main) or a folder within it.', 'error');
+                loadingIndicator.style.display = 'none';
+                return;
+            }
+
+            const user = match[1];
+            const repo = match[2];
+            const branch = match[3];
+            let folderPath = match[4] || ''; // Will be empty string if no folder path is present
+
+            // Ensure folderPath doesn't start or end with a slash if it exists
+            if (folderPath) {
+                folderPath = folderPath.replace(/^\/|\/$/g, '');
+            }
+
+            const cdnBase = `https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/`;
+            
+            // Construct htmlFileUrl based on whether a folderPath exists
+            const htmlFileUrl = folderPath ? `${cdnBase}${folderPath}/index.html` : `${cdnBase}index.html`;
+
+            try {
+                let htmlContent = await (await fetch(htmlFileUrl)).text();
+
+                // Fix relative src/href paths inside the HTML to full CDN URLs
+                htmlContent = htmlContent.replace(/(src|href)=["'](?!https?:\/\/|\/\/)([^"']+)["']/g, (match, attr, relativeUrl) => {
+                    // If it's a hash link, return as is
+                    if (relativeUrl.startsWith('#')) {
+                        return `${attr}="${relativeUrl}"`;
+                    }
+
+                    let absoluteUrl;
+                    if (relativeUrl.startsWith('/')) {
+                        // If path starts with '/', it's relative to the CDN root (repo root)
+                        absoluteUrl = `${cdnBase}${relativeUrl.substring(1)}`;
+                    } else {
+                        // Otherwise, it's relative to the current folder path (or repo root if no folder)
+                        const baseForRelative = folderPath ? `${cdnBase}${folderPath}/` : cdnBase;
+                        absoluteUrl = `${baseForRelative}${relativeUrl}`;
+                    }
+                    return `${attr}="${absoluteUrl}"`;
+                });
+
+                // Set the modified HTML content to the iframe's srcdoc
+                gameIframe.srcdoc = htmlContent;
+
+                // Handle iframe load event
+                gameIframe.onload = () => {
+                    loadingIndicator.style.display = 'none';
+                    gameIframe.style.display = 'block';
+                    startStats(); // Start stats once the game iframe has loaded
+                };
+            } catch (err) {
+                console.error("Error loading game:", err);
+                // Display error message inside the iframe
+                gameIframe.srcdoc = `<p style="color: red; text-align: center; padding: 20px;">Error loading game: ${err.message}. Please ensure the GitHub URL is correct and the game's index.html exists.</p>`;
+                loadingIndicator.style.display = 'none';
+                gameIframe.style.display = 'block';
+                showMessageBox(`Error loading game: ${err.message}. Check console for details.`, 'error'); // Show error message box
+            }
+        }
+
+        function closeModal() {
+            // Analytics: Game Play End
+            if (currentGameStartTime) {
+                const duration = Date.now() - currentGameStartTime;
+                sendAnalyticsData('game_play_end', { gameTitle: gameModalTitle.textContent, durationMs: duration, gameId: allGamesData.find(g => g.title === gameModalTitle.textContent)?.id });
+                currentGameStartTime = null;
+            }
+
+            gameModal.classList.remove('show');
+            setTimeout(() => {
+                gameModal.style.display = 'none';
+                gameIframe.srcdoc = ''; // Clear iframe content
+                statsRunning = false; // Stop stats
+                cancelAnimationFrame(animationFrameId); // Ensure FPS counter stops
+                statsEl.textContent = 'FPS: --'; // Reset stats display
+            }, 400); // Match modal transition speed
+        }
+
+        // --- REPORTING FUNCTIONALITY ---
+
+        function showReportModal() {
+            reportGameTitleSpan.textContent = gameModalTitle.textContent; // Set game title in report modal
+            issueDescriptionTextarea.value = ''; // Clear previous input
+            reportModal.style.display = 'flex';
+            setTimeout(() => reportModal.classList.add('show'), 10);
+            sendAnalyticsData('button_click', { buttonId: 'reportBtn', context: 'game_modal' }); // Analytics: Button Click
+        }
+
+        function hideReportModal() {
+            reportModal.classList.remove('show');
+            setTimeout(() => reportModal.style.display = 'none', 400);
+        }
+
+        async function sendReportToGoogleSheet(gameTitle, issueDescription) {
+            if (GOOGLE_SHEET_WEB_APP_URL === 'https://script.google.com/macros/s/AKfycbx7uPJgJarkSCUMzwDBsMgX9_4Uv2jPe_q_HccQ6mkr3Z0KNwvduxx2pyim2Dmo7QpQSg/exec' || !GOOGLE_SHEET_WEB_APP_URL) {
+                showMessageBox('Report feature not configured. Please set up Google Apps Script URL as instructed.', 'error');
+                return;
+            }
+
+            submitReportBtn.classList.add('loading'); // Show loader
+            submitReportBtn.querySelector('.loader').style.display = 'inline-block'; // Ensure loader is visible
+            submitReportBtn.innerHTML = `Sending... <span class="loader"></span>`; // Change button text and keep loader
+
+            const data = {
+                type: 'report', // Indicate type of request
+                game: gameTitle,
+                issue: issueDescription,
+                timestamp: new Date().toLocaleString()
+            };
+
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                showMessageBox('Report submitted! Please check your Google Sheet for confirmation.', 'info');
+                hideReportModal();
+                sendAnalyticsData('report_submitted', { gameTitle: gameTitle, issueLength: issueDescription.length }); // Analytics: Report Submitted
+            } catch (error) {
+                console.error('Network error sending report:', error);
+                showMessageBox('Failed to submit report due to a network error. Please check your connection.', 'error');
+                sendAnalyticsData('report_submission_failed', { gameTitle: gameTitle, error: error.message }); // Analytics: Report Failed
+            } finally {
+                submitReportBtn.classList.remove('loading'); // Hide loader
+                submitReportBtn.innerHTML = `Submit Report <span class="loader"></span>`; // Reset button text and loader HTML
+            }
+        }
+
+        // --- AD LOADING FUNCTION ---
+        // Removed as ads are no longer used.
+        function loadAds() {
+            // No ads to load
+        }
+
+        // --- MODAL CONTROL FUNCTIONS (Generic) ---
+        function showGenericModal(modalElement) {
+            modalElement.style.display = 'flex';
+            setTimeout(() => modalElement.classList.add('show'), 10);
+        }
+
+        function hideGenericModal(modalElement) {
+            modalElement.classList.remove('show');
+            setTimeout(() => modalElement.style.display = 'none', 400);
+        }
+
+        // --- LINKS MODAL SPECIFIC FUNCTIONALITY ---
+        function renderLinksContent() {
+            linksContent.innerHTML = ''; // Clear previous content
+
+            for (const sectionTitle in allLinksData) {
+                const section = document.createElement('div');
+                section.classList.add('links-section');
+
+                const title = document.createElement('h3');
+                title.textContent = sectionTitle;
+                section.appendChild(title);
+
+                const ul = document.createElement('ul');
+                allLinksData[sectionTitle].forEach(link => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.href = link.url;
+                    a.textContent = link.name;
+                    a.target = "_blank"; // Open links in new tab
+                    a.rel = "noopener noreferrer"; // Security best practice
+                    li.appendChild(a);
+                    ul.appendChild(li);
+                });
+                section.appendChild(ul);
+                linksContent.appendChild(section);
+            }
+        }
+
+        // --- BAD WORDS FILTERING ---
+        // Removed async loadBadWords as it's now a local JSON
+        function containsBadWords(text) {
+            const lowerCaseText = text.toLowerCase();
+            // Check if any word in the badWordsData.words array is present in the input text
+            for (const badWord of badWordsData.words) {
+                // Use regex with word boundaries to avoid partial matches (e.g., "ass" in "assist")
+                const regex = new RegExp(`\\b${badWord}\\b`, 'i'); // 'i' for case-insensitive
+                if (regex.test(lowerCaseText)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- SCHOOL LOGIN DATA SUBMISSION ---
+        async function sendSchoolLoginData(schoolName) {
+            const originalButtonText = submitNameBtn.innerHTML; // Get full HTML including loader span
+            submitNameBtn.disabled = true; // Disable button during submission
+            submitNameBtn.innerHTML = `Submitting... <span class="loader"></span>`; // Change button text and show loader
+
+            const data = {
+                type: 'school_login', // Indicate type of request
+                schoolName: schoolName,
+                userId: userId, // Include userId in school login data
+                timestamp: new Date().toLocaleString()
+            };
+
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Required for direct browser-to-Apps-Script communication
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                console.log('School login data sent to Google Sheet (no-cors mode).');
+                // In no-cors mode, we cannot read the response, so assume success for UI feedback
+            } catch (error) {
+                console.error('Error sending school login data:', error);
+                showMessageBox('Failed to record school login. Please check your connection and Google Apps Script setup.', 'error');
+            } finally {
+                submitNameBtn.disabled = false; // Re-enable button
+                submitNameBtn.innerHTML = originalButtonText; // Reset button HTML
+            }
+        }
+
+        // --- ANALYTICS FUNCTION ---
+        async function sendAnalyticsData(eventType, eventDetails = {}) {
+            const currentUserId = userId; // Use the globally defined userId
+            const currentSchoolName = schoolName || 'N/A'; // schoolName is global after modal
+            
+            const payload = {
+                type: 'analytics',
+                userId: currentUserId,
+                schoolName: currentSchoolName,
+                eventType: eventType,
+                eventDetails: eventDetails,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Still using no-cors for simplicity with Apps Script
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                console.log(`Analytics sent: ${eventType}`);
+            } catch (error) {
+                console.error('Failed to send analytics:', error);
+            }
+        }
+
+
+        // --- EVENT LISTENERS ---
+
+        // Name Modal Submission
+        submitNameBtn.addEventListener('click', () => {
+            console.log('Submit name button clicked.');
+            const name = schoolNameInput.value.trim();
+            const words = name.split(/\s+/).filter(w => w.length > 0); // Split by whitespace and filter empty strings
+
+            // Validation checks
+            if (name === '') {
+                showMessageBox('Please enter your school name.', 'error');
+                schoolNameInput.focus();
+                return; // Stop execution
+            }
+            
+            if (words.length < 2) {
+                showMessageBox('Please enter at least two words for your school name.', 'error');
+                schoolNameInput.focus();
+                return; // Stop execution
+            }
+
+            // Check if each word is at least 2 letters long
+            const allWordsValidLength = words.every(word => word.length >= 2);
+            if (!allWordsValidLength) {
+                showMessageBox('Each word in your school name must be at least two letters long.', 'error');
+                schoolNameInput.focus();
+                return; // Stop execution
+            }
+
+            if (containsBadWords(name)) {
+                showMessageBox('Fuck You, You Curing Bitch', 'error'); // Custom error message with 'error' type
+                schoolNameInput.value = ''; // Clear input
+                schoolNameInput.focus();
+                sendAnalyticsData('profanity_detected', { input: name }); // Analytics: Profanity Detected
+                return; // Stop execution
+            }
+            
+            // If all validations pass
+            schoolName = name; // Store the validated school name
+            console.log(`School name validated: ${schoolName}`);
+
+            // Send login data to Google Sheet
+            sendSchoolLoginData(schoolName);
+            sendAnalyticsData('user_login', { schoolName: schoolName }); // Analytics: User Login
+
+            // Proceed with UI transition
+            nameModal.classList.remove('show');
+            setTimeout(() => {
+                nameModal.style.display = 'none'; // Fully hide after transition
+                appContainer.classList.add('show-app'); // Smoothly show main app container
+                homePage.classList.add('active'); // Activate home page
+                typeWriter(animatedTitle, `Welcome From ${schoolName}!`, 100); // Use schoolName with new message
+                showGreeting(schoolName); // Show a splash greeting
+                // Removed loadAds() call
+            }, 400); // Match modal transition speed
+        });
+
+        // Allow Enter key to submit name
+        schoolNameInput.addEventListener('keypress', (event) => { // Changed to schoolNameInput
+            if (event.key === 'Enter') {
+                submitNameBtn.click();
+            }
+        });
+
+        // Start Button to Games Page
+        startButton.addEventListener('click', () => {
+            navigateTo('gamesPage');
+            // Render games when navigating to games page
+            if (gamesRendered === 0) {
+                renderGames();
+            }
+            updateGameTotal(); // Ensure total is updated when navigating to games page
+            sendAnalyticsData('button_click', { buttonId: 'startButton', context: 'home_page' }); // Analytics: Button Click
+        });
+
+        // Games Grid Click Handler (Delegation)
+        gamesGrid.addEventListener('click', (event) => {
+            const gameCard = event.target.closest('.game-card');
+            if (gameCard) {
+                const gameId = gameCard.dataset.gameId;
+                const game = allGamesData.find(g => g.id === gameId);
+                if (game) {
+                    gameModalTitle.textContent = game.title;
+                    // Extract username for game modal credits
+                    const githubUsernameMatch = game.repoUrl.match(/github\.com\/([^\/]+)\//);
+                    const githubUsername = githubUsernameMatch ? githubUsernameMatch[1] : 'Unknown';
+                    gameModalCredits.textContent = `Credits: ${githubUsername}`;
+
+                    // Call the new loadGameIntoIframe function with the game's repoUrl
+                    loadGameIntoIframe(game.repoUrl);
+                    gameModal.style.display = 'flex';
+                    setTimeout(() => gameModal.classList.add('show'), 10); // Show with transition
+                    currentGameStartTime = Date.now(); // Record game start time
+                    sendAnalyticsData('game_play_start', { gameTitle: game.title, gameId: game.id }); // Analytics: Game Play Start
+                }
+            }
+        });
+
+        // Game Modal Controls
+        closeGameBtn.addEventListener('click', () => {
+            closeModal();
+            sendAnalyticsData('button_click', { buttonId: 'closeGameBtn', context: 'game_modal' }); // Analytics: Button Click
+        });
+        gameModal.addEventListener('click', e => { // Close modal on overlay click
+            if (e.target === gameModal) closeModal();
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (gameIframe.requestFullscreen) {
+                gameIframe.requestFullscreen();
+            } else if (gameIframe.mozRequestFullScreen) { /* Firefox */
+                gameIframe.mozRequestFullScreen();
+            } else if (gameIframe.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                gameIframe.webkitRequestFullscreen();
+            } else {
+                showMessageBox('Fullscreen not supported or allowed by your browser/device for this content.', 'error');
+            }
+            sendAnalyticsData('button_click', { buttonId: 'fullscreenBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent }); // Analytics: Button Click
+        });
+
+        // Updated New Tab Button Logic
+        newTabBtn.addEventListener('click', async () => {
+            const game = allGamesData.find(g => g.title === gameModalTitle.textContent);
+            if (!game || !game.repoUrl) {
+                showMessageBox('Cannot open game in new tab: Game data not found or invalid repository URL.', 'error');
+                return;
+            }
+
+            const repoUrl = game.repoUrl;
+            // Use the same robust regex for new tab opening
+            const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)(?:\/(.*))?/);
+            if (!match) {
+                showMessageBox('Cannot open game in new tab: Invalid GitHub folder URL format.', 'error');
+                return;
+            }
+
+            const user = match[1];
+            const repo = match[2];
+            const branch = match[3];
+            let folderPath = match[4] || ''; // Will be empty string if no folder path is present
+
+            if (folderPath) {
+                folderPath = folderPath.replace(/^\/|\/$/g, '');
+            }
+
+            const cdnBase = `https://cdn.jsdelivr.net/gh/${user}/${repo}@${branch}/`;
+            const htmlFileUrl = folderPath ? `${cdnBase}${folderPath}/index.html` : `${cdnBase}index.html`;
+
+            let newWindow = null; // Declare newWindow outside try-catch for broader scope
+
+            try {
+                // Open a new window immediately
+                newWindow = window.open('about:blank', '_blank', 'width=1024,height=768,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=yes');
+
+                if (!newWindow) {
+                    showMessageBox('Pop-up blocked! Please allow pop-ups for this site to open games in a new window.', 'error');
+                    sendAnalyticsData('button_click_failed', { buttonId: 'newTabBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent, reason: 'popup_blocked' }); // Analytics: Button Click Failed
+                    return;
+                }
+
+                // Initial HTML for the new window with a loading indicator
+                newWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${game.title}</title>
+                        <style>
+                            body {
+                                margin: 0;
+                                padding: 0;
+                                overflow: hidden;
+                                height: 100vh;
+                                width: 100vw;
+                                background-color: #000;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                color: white;
+                                font-family: 'Inter', sans-serif; /* Use Inter for consistency */
+                            }
+                            iframe {
+                                border: none;
+                                width: 100%;
+                                height: 100%;
+                                display: block;
+                                visibility: hidden; /* Hide until loaded */
+                            }
+                            #loading {
+                                font-size: 1.5em;
+                                animation: pulse 1.5s infinite alternate; /* Simple loading animation */
+                            }
+                            @keyframes pulse {
+                                from { opacity: 0.5; }
+                                to { opacity: 1; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div id="loading">Loading game...</div>
+                        <iframe id="gameContentIframe" src="about:blank" frameborder="0" allowfullscreen></iframe>
+                    </body>
+                    </html>
+                `);
+                newWindow.document.close(); // Important: Close the document stream
+
+                // Get references to elements in the new window (after document.write)
+                const newWindowIframe = newWindow.document.getElementById('gameContentIframe');
+                const newWindowLoading = newWindow.document.getElementById('loading');
+
+                // Fetch and process the game's index.html
+                let htmlContent = await (await fetch(htmlFileUrl)).text();
+
+                // Rewrite relative paths
+                htmlContent = htmlContent.replace(/(src|href)=["'](?!https?:\/\/|\/\/)([^"']+)["']/g, (match, attr, relativeUrl) => {
+                    if (relativeUrl.startsWith('#')) {
+                        return `${attr}="${relativeUrl}"`;
+                    }
+                    let absoluteUrl;
+                    if (relativeUrl.startsWith('/')) {
+                        absoluteUrl = `${cdnBase}${relativeUrl.substring(1)}`;
+                    } else {
+                        const baseForRelative = folderPath ? `${cdnBase}${folderPath}/` : cdnBase;
+                        absoluteUrl = `${baseForRelative}${relativeUrl}`;
+                    }
+                    return `${attr}="${absoluteUrl}"`;
+                });
+
+                // Set srcdoc and handle load
+                newWindowIframe.srcdoc = htmlContent;
+                newWindowIframe.onload = () => {
+                    if (newWindowLoading) newWindowLoading.style.display = 'none'; // Hide loading
+                    if (newWindowIframe) newWindowIframe.style.visibility = 'visible'; // Show iframe
+                };
+                sendAnalyticsData('button_click', { buttonId: 'newTabBtn', context: 'game_modal', gameTitle: game.title }); // Analytics: Button Click
+
+            } catch (err) {
+                console.error("Error opening game in new tab:", err);
+                if (newWindow && newWindow.document && newWindow.document.body) {
+                    newWindow.document.body.innerHTML = `<p style="color: red; text-align: center; padding: 20px;">Error loading game: ${err.message}. Please ensure the GitHub URL is correct and the game's index.html exists.</p>`;
+                } else {
+                    showMessageBox(`Error opening game in new tab: ${err.message}`, 'error');
+                }
+                sendAnalyticsData('button_click_failed', { buttonId: 'newTabBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent, error: err.message }); // Analytics: Button Click Failed
+            }
+        });
+
+
+        refreshBtn.addEventListener('click', () => {
+            // To refresh, we need to re-load the game using the same logic
+            const game = allGamesData.find(g => g.title === gameModalTitle.textContent);
+            if (game && game.repoUrl) {
+                loadGameIntoIframe(game.repoUrl);
+            } else {
+                showMessageBox('Cannot refresh: Game data not found.', 'error');
+            }
+            sendAnalyticsData('button_click', { buttonId: 'refreshBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent }); // Analytics: Button Click
+        });
+
+        lockMouseBtn.addEventListener('click', () => {
+            if (gameIframe.contentWindow && gameIframe.contentWindow.document && gameIframe.contentWindow.document.body.requestPointerLock) {
+                gameIframe.contentWindow.document.body.requestPointerLock();
+                showMessageBox('Mouse locked to game iframe. Press ESC to unlock.', 'info');
+                sendAnalyticsData('button_click', { buttonId: 'lockMouseBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent, status: 'locked' }); // Analytics: Button Click
+            } else {
+                showMessageBox('Pointer Lock API not supported or available in this context.', 'error');
+                sendAnalyticsData('button_click_failed', { buttonId: 'lockMouseBtn', context: 'game_modal', gameTitle: gameModalTitle.textContent, reason: 'not_supported' }); // Analytics: Button Click Failed
+            }
+        });
+
+// --- Report Button Event Listeners ---
+reportBtn.addEventListener('click', showReportModal);
+
+submitReportBtn.addEventListener('click', () => {
+    const gameTitle = reportGameTitleSpan.textContent;
+    const issueDescription = issueDescriptionTextarea.value.trim();
+
+    if (issueDescription) {
+        sendReportToGoogleSheet(gameTitle, issueDescription);
+    } else {
+        showMessageBox('Please provide a description for the issue.', 'error');
+        sendAnalyticsData('report_submission_failed', { gameTitle: gameTitle, reason: 'no_description' }); // Analytics: Report Failed
+    }
+});
+
+cancelReportBtn.addEventListener('click', () => {
+    hideReportModal();
+    sendAnalyticsData('button_click', { buttonId: 'cancelReportBtn', context: 'report_modal' }); // Analytics: Button Click
+});
+
+reportModal.addEventListener('click', (e) => {
+    if (e.target === reportModal) {
+        hideReportModal();
+        sendAnalyticsData('modal_closed', { modalId: 'reportModal', method: 'overlay_click' }); // Analytics: Modal Closed
+    }
+});
+
+// --- Footer Link Event Listeners ---
+termsLinkHome.addEventListener('click', (e) => { e.preventDefault(); showGenericModal(termsModal); sendAnalyticsData('button_click', { buttonId: 'termsLinkHome' }); });
+privacyPolicyLinkHome.addEventListener('click', (e) => { e.preventDefault(); showGenericModal(privacyPolicyModal); sendAnalyticsData('button_click', { buttonId: 'privacyPolicyLinkHome' }); });
+otherSitesLinkHome.addEventListener('click', (e) => { e.preventDefault(); renderLinksContent(); showGenericModal(linksModal); sendAnalyticsData('button_click', { buttonId: 'otherSitesLinkHome' }); });
+
+termsLinkGames.addEventListener('click', (e) => { e.preventDefault(); showGenericModal(termsModal); sendAnalyticsData('button_click', { buttonId: 'termsLinkGames' }); });
+privacyPolicyLinkGames.addEventListener('click', (e) => { e.preventDefault(); showGenericModal(privacyPolicyModal); sendAnalyticsData('button_click', { buttonId: 'privacyPolicyLinkGames' }); });
+otherSitesLinkGames.addEventListener('click', (e) => { e.preventDefault(); renderLinksContent(); showGenericModal(linksModal); sendAnalyticsData('button_click', { buttonId: 'otherSitesLinkGames' }); });
+
+// Close buttons for new modals
+closeTermsModalBtn.addEventListener('click', () => { hideGenericModal(termsModal); sendAnalyticsData('button_click', { buttonId: 'closeTermsModalBtn', context: 'terms_modal' }); });
+closePrivacyPolicyModalBtn.addEventListener('click', () => { hideGenericModal(privacyPolicyModal); sendAnalyticsData('button_click', { buttonId: 'closePrivacyPolicyModalBtn', context: 'privacy_modal' }); });
+closeLinksModalBtn.addEventListener('click', () => { hideGenericModal(linksModal); sendAnalyticsData('button_click', { buttonId: 'closeLinksModalBtn', context: 'links_modal' }); });
+
+// Close modals when clicking outside content
+termsModal.addEventListener('click', (e) => { if (e.target === termsModal) { hideGenericModal(termsModal); sendAnalyticsData('modal_closed', { modalId: 'termsModal', method: 'overlay_click' }); } });
+privacyPolicyModal.addEventListener('click', (e) => { if (e.target === privacyPolicyModal) { hideGenericModal(privacyPolicyModal); sendAnalyticsData('modal_closed', { modalId: 'privacyPolicyModal', method: 'overlay_click' }); } });
+linksModal.addEventListener('click', (e) => { if (e.target === linksModal) { hideGenericModal(linksModal); sendAnalyticsData('modal_closed', { modalId: 'linksModal', method: 'overlay_click' }); } });
+
+
+// --- Lazy load games on scroll ---
+window.addEventListener('scroll', handleScroll);
+
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded. Initializing app.');
+    // Set current year in footers
+    const year = new Date().getFullYear();
+    currentYearSpan.textContent = year;
+    gamesPageCurrentYearSpan.textContent = year;
+
+    // Show the name modal on page load
+    console.log('Showing name modal.');
+    nameModal.classList.add('show');
+    schoolNameInput.focus(); // Focus on the new input field
+
+    // Fetch service status
+    fetchServiceStatus();
+
+    // Initial page view analytics event
+    sendAnalyticsData('page_view', { page: 'initial_load' });
+});
+    </script>
+</body>
+</html>
